@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import Login from './pages/login';
 import AppLayout from './layout/Layout';
-import Dashboard from './pages';
+import Dashboard from './pages/dashboard';
 import Report from './pages/report';
 import SystemParams from './pages/system/params';
 import Setting from './pages/setting';
