@@ -21,7 +21,7 @@ const DB_VERSION = 1;
 const SESSION_KEY = 'report-list-session';
 
 const typeSelectOpt = [
-   { label: '测试报表', value: 'test' },
+  { label: '测试报表', value: 'test' },
 ]
 
 const openDatabase = (): Promise<IDBDatabase> =>
@@ -101,6 +101,8 @@ const Report = () => {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingRecord, setEditingRecord] = useState<RecordType | null>(null);
   const [isAddMode, setIsAddMode] = useState(false);
+  const [loadingQuery, setLoadingQuery] = useState(false);
+  const [loadingDelete, setLoadingDelete] = useState(false);
 
   const applySearch = (data: RecordType[], filters: FieldType) => {
     return data.filter(item => {
@@ -134,25 +136,36 @@ const Report = () => {
     setIsEditModalVisible(true);
   };
 
+  // 删除
   const handleDelete = (key: string) => {
     Modal.confirm({
       title: '确认删除',
       content: '确定要删除该项数据吗？',
       centered: true,
+      okText: '确认',
+      cancelText: '取消',
       onOk: () => {
-        const nextData = dataSource.filter(item => item.key !== key);
-        updateData(nextData);
-        message.success('删除成功，记得点击保存到 IndexedDB');
+        try {
+          setLoadingDelete(true);
+          const nextData = dataSource.filter(item => item.key !== key);
+          updateData(nextData);
+        } finally {
+          setTimeout(() => {
+            message.success('删除成功，记得点击保存到 IndexedDB');
+            setLoadingDelete(false);
+          }, 500);
+        }
       },
     });
   };
 
   const handleSaveRecord = async () => {
     try {
+      // 校验表单 校验成功后返回表单数据、不成功可以直接报错、被try catch 抓到
       const values = await editForm.validateFields();
       if (isAddMode) {
         // 新增模式
-        const nextKey = `${Date.now()}`;
+        const nextKey = `${Date.now()}`; // 时间戳作为 id
         const newRecord: RecordType = {
           key: nextKey,
           ...values,
@@ -177,17 +190,26 @@ const Report = () => {
     }
   };
 
+  // 查询
   const queryData = (values: FieldType) => {
-    setSearchValues(values);
-    setFilteredData(applySearch(dataSource, values));
-    message.success('查询完成');
+    setLoadingQuery(true);
+    try {
+      setSearchValues(values);
+      setFilteredData(applySearch(dataSource, values));
+      message.success('查询完成');
+    } finally {
+      setTimeout(() => {
+        setLoadingQuery(false);
+      }, 500);
+    }
   };
 
+  // 重置
   const resetData = () => {
     form.resetFields();
     setSearchValues({});
     setFilteredData(dataSource);
-    message.success('已重置查询条件');
+    queryData({});
   };
 
   const handleSaveToIndexedDB = async () => {
@@ -254,12 +276,13 @@ const Report = () => {
     {
       title: '操作',
       key: 'actions',
+      // record 当前行行数据 相当于 row
       render: (_: any, record: RecordType) => (
         <Space>
           <Button type="link" onClick={() => handleEdit(record)}>
             编辑
           </Button>
-          <Button type="link" danger onClick={() => handleDelete(record.key)}>
+          <Button type="link" danger onClick={() => handleDelete(record.key)} loading={loadingDelete}>
             删除
           </Button>
         </Space>
@@ -296,10 +319,10 @@ const Report = () => {
             </Col>
             <Col span={12} style={{ textAlign: 'right' }}>
               <Form.Item label={null}>
-                <Button type="primary" htmlType="submit" style={{ marginRight: 8 }}>
+                <Button type="primary" htmlType="submit" style={{ marginRight: 8 }} loading={loadingQuery}>
                   查询
                 </Button>
-                <Button htmlType="button" onClick={resetData}>
+                <Button htmlType="button" onClick={resetData} loading={loadingQuery}>
                   重置
                 </Button>
               </Form.Item>
@@ -334,6 +357,8 @@ const Report = () => {
           setEditingRecord(null);
           setIsAddMode(false);
         }}
+        okText="确认"
+        cancelText="取消"
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="reportName" label="报表名称" rules={[{ required: true, message: '请输入报表名称' }]}>
@@ -343,7 +368,7 @@ const Report = () => {
             <Input />
           </Form.Item>
           <Form.Item name="reportType" label="报表类型" rules={[{ required: true, message: '请选择报表类型' }]}>
-            <Select options={typeSelectOpt} />
+            <Select options={typeSelectOpt} allowClear={true} />
           </Form.Item>
           <Form.Item name="remark" label="备注" rules={[{ required: false, message: '请输入备注' }]}>
             <Input.TextArea placeholder="请输入备注" />
