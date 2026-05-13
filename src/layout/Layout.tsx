@@ -22,8 +22,20 @@ const AppLayout = () => {
     useEffect(() => {
         const fetchMenu = async () => {
             try {
-                const res = await getMenu({ menuName: '' });
-                setMenuItems(res.data.data ?? []);
+                // const res = await getMenu({ menuName: '' });
+                // setMenuItems(res.data.data ?? []);
+                setMenuItems(
+                    [
+                        { label: '首页', key: 'home' }, // key 是必须的
+                        { label: '报表', key: 'report' },
+                        {
+                            label: '系统设置',
+                            key: 'system',
+                            children: [{ label: '系统参数', key: 'system-params' }], // 子菜单也在这里
+                        },
+                        { label: '工具', key: 'tool' }
+                    ]
+                )
             } catch (error) {
                 console.error('Failed to load menu:', error);
             }
