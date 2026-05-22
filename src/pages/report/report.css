@@ -1,0 +1,85 @@
+.report-designer {
+  display: flex;
+  gap: 16px;
+  min-height: 520px;
+}
+
+.report-grid-wrap {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.report-grid-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 100%;
+}
+
+.report-grid-table tr {
+  height: 36px;
+}
+
+.report-grid-table td {
+  border: 1px solid #d9d9d9;
+  padding: 8px 10px;
+  min-width: 72px;
+  height: 36px;
+  box-sizing: border-box;
+  line-height: 1.4;
+  vertical-align: middle;
+  cursor: cell;
+  position: relative;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.report-grid-table td.selected {
+  outline: 2px solid #1677ff;
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.report-grid-table td.has-field {
+  background: #fffbe6;
+}
+
+.report-grid-table td.is-template-row {
+  background: #f6ffed;
+}
+
+.report-cell-field-tag {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  font-size: 10px;
+  color: #d48806;
+  line-height: 1;
+}
+
+.report-panel {
+  width: 280px;
+  flex-shrink: 0;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.report-preview-grid td {
+  cursor: default;
+}
+
+.report-chart-box {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.report-toolbar {
+  margin-bottom: 12px;
+}

@@ -37,7 +37,17 @@ const statusOptions = [
   { value: 0, label: '停用' },
 ];
 
-const defaultForm = {
+type ParamFormValues = {
+  param_name: string;
+  param_key: string;
+  param_value: string;
+  param_type: number;
+  sort_order: number;
+  status: number;
+  remark: string;
+};
+
+const defaultForm: ParamFormValues = {
   param_name: '',
   param_key: '',
   param_value: '',
@@ -47,8 +57,19 @@ const defaultForm = {
   remark: '',
 };
 
+/** 接口数字字段可能是字符串，统一转成表单用的类型 */
+const toFormValues = (record: SysParam): ParamFormValues => ({
+  param_name: record.param_name ?? '',
+  param_key: record.param_key ?? '',
+  param_value: record.param_value != null ? String(record.param_value) : '',
+  param_type: Number(record.param_type) || 1,
+  sort_order: Number(record.sort_order) || 0,
+  status: Number(record.status) ?? 1,
+  remark: record.remark ?? '',
+});
+
 const SystemParams = () => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<ParamFormValues>();
   const [list, setList] = useState<SysParam[]>([]);
   const [loading, setLoading] = useState(false);
   const [keyword, setKeyword] = useState('');
@@ -56,7 +77,7 @@ const SystemParams = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<SysParam | null>(null);
-  const paramType = Form.useWatch('param_type', form);
+  const paramType = Number(Form.useWatch('param_type', form) ?? 1);
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -82,33 +103,43 @@ const SystemParams = () => {
     loadList();
   }, [loadList]);
 
+  const fillForm = (record: SysParam | null) => {
+    form.resetFields();
+    form.setFieldsValue(record ? toFormValues(record) : defaultForm);
+  };
+
   const openCreate = () => {
     setEditing(null);
-    form.setFieldsValue(defaultForm);
     setModalOpen(true);
   };
 
   const openEdit = (record: SysParam) => {
     setEditing(record);
-    form.setFieldsValue({
-      ...record,
-      param_value: record.param_value ?? '',
-      remark: record.remark ?? '',
-    });
     setModalOpen(true);
+  };
+
+  const handleModalAfterOpen = (open: boolean) => {
+    if (open) {
+      fillForm(editing);
+    }
   };
 
   const handleSubmit = async () => {
     const values = await form.validateFields();
+    const type = Number(values.param_type);
+    let param_value = String(values.param_value ?? '').trim();
+    if (type === 3) {
+      param_value = values.param_value === '1' ? '1' : '0';
+    }
+
     const payload = {
-      ...values,
-      param_value:
-        values.param_type === 3
-          ? values.param_value
-            ? '1'
-            : '0'
-          : String(values.param_value ?? ''),
-      remark: values.remark || null,
+      param_name: values.param_name.trim(),
+      param_key: values.param_key.trim(),
+      param_value,
+      param_type: type,
+      sort_order: Number(values.sort_order) || 0,
+      status: Number(values.status),
+      remark: values.remark?.trim() || null,
     };
 
     setSaving(true);
@@ -147,7 +178,7 @@ const SystemParams = () => {
   };
 
   const renderValue = (record: SysParam) => {
-    if (record.param_type === 3) {
+    if (Number(record.param_type) === 3) {
       return record.param_value === '1' ? (
         <Tag color="success">开启</Tag>
       ) : (
@@ -155,7 +186,7 @@ const SystemParams = () => {
       );
     }
     const text = record.param_value ?? '';
-    if (record.param_type === 4) {
+    if (Number(record.param_type) === 4) {
       return (
         <span style={{ fontFamily: 'monospace', fontSize: 12 }}>
           {text.length > 60 ? `${text.slice(0, 60)}...` : text}
@@ -246,14 +277,18 @@ const SystemParams = () => {
         title={editing ? '编辑参数' : '新增参数'}
         open={modalOpen}
         onOk={handleSubmit}
-        onCancel={() => setModalOpen(false)}
+        onCancel={() => {
+          setModalOpen(false);
+          setEditing(null);
+        }}
+        afterOpenChange={handleModalAfterOpen}
         confirmLoading={saving}
         destroyOnClose
         width={720}
         centered
         styles={{ body: { padding: '20px 24px 8px', overflow: 'visible', maxHeight: 'none' } }}
       >
-        <Form form={form} layout="vertical" requiredMark preserve={false}>
+        <Form form={form} layout="vertical" requiredMark>
           <Row gutter={[24, 4]}>
             <Col span={12}>
               <Form.Item
@@ -296,25 +331,33 @@ const SystemParams = () => {
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={paramType === 3 ? 12 : 24}>
               {paramType === 3 ? (
-                <Form.Item
-                  name="param_value"
-                  label="参数值"
-                  valuePropName="checked"
-                  getValueFromEvent={(c) => (c ? '1' : '0')}
-                  getValueProps={(v) => ({ checked: v === '1' || v === 1 })}
-                >
-                  <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+                <Form.Item label="参数值" required>
+                  <Form.Item
+                    name="param_value"
+                    noStyle
+                    valuePropName="checked"
+                    getValueFromEvent={(checked: boolean) => (checked ? '1' : '0')}
+                    getValueProps={(value) => ({
+                      checked: value === '1' || value === 1 || value === true,
+                    })}
+                  >
+                    <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+                  </Form.Item>
                 </Form.Item>
-              ) : null}
-            </Col>
-            {paramType !== 3 && (
-              <Col span={24}>
+              ) : (
                 <Form.Item
                   name="param_value"
                   label="参数值"
-                  rules={paramType === 2 ? [{ required: true, message: '请输入数字' }] : []}
+                  rules={
+                    paramType === 2
+                      ? [
+                          { required: true, message: '请输入数字' },
+                          { pattern: /^-?\d+(\.\d+)?$/, message: '请输入有效数字' },
+                        ]
+                      : []
+                  }
                 >
                   {paramType === 4 ? (
                     <Input.TextArea rows={4} placeholder='{"key": "value"}' />
@@ -322,8 +365,8 @@ const SystemParams = () => {
                     <Input.TextArea rows={3} placeholder="参数值" />
                   )}
                 </Form.Item>
-              </Col>
-            )}
+              )}
+            </Col>
             <Col span={24}>
               <FormRemark placeholder="可选" />
             </Col>

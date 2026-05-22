@@ -1,19 +1,134 @@
 .app-layout {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
-.app-header {
-  background: #fff;
-  padding: 0;
+.app-layout.ant-layout {
+  flex-direction: row;
+}
+
+.app-sider {
+  height: 100vh;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.12);
+}
+
+.app-sider .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-logo {
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  font-size: var(--font-size-large);
+  gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.app-logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #06b6d4 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.app-logo-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f8fafc;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.app-sider-menu {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-inline-end: none !important;
+  padding: 8px 0 16px;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-header {
+  background: #fff !important;
+  padding: 0 24px !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  height: var(--header-height) !important;
+  line-height: var(--header-height) !important;
+  flex-shrink: 0;
+}
+
+.app-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.app-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.app-header-time {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.app-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+}
+
+.app-user-name {
+  font-size: 14px;
+  color: var(--color-text);
+  font-weight: 500;
 }
 
 .app-content {
-  margin: 24px 16px;
-  padding: 24px;
-  background: #fff;
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--content-padding);
+  background: var(--color-bg);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.app-content-inner {
+  max-width: 1440px;
+  margin: 0 auto;
 }
