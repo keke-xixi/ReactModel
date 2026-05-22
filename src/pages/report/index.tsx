@@ -22,6 +22,8 @@ const SESSION_KEY = 'report-list-session';
 
 const typeSelectOpt = [
   { label: '测试报表', value: 'test' },
+  { label: '矿业报表', value: 'official' },
+  { label: '其他报表', value: 'other' },
 ]
 
 const openDatabase = (): Promise<IDBDatabase> =>
