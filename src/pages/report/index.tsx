@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button, Form, Input, Table, Row, Col, Space, Modal, message, Select } from 'antd';
+import FormRemark from '../../components/FormRemark';
 
 type FieldType = {
   reportName?: string;
@@ -372,9 +373,7 @@ const Report = () => {
           <Form.Item name="reportType" label="报表类型" rules={[{ required: true, message: '请选择报表类型' }]}>
             <Select options={typeSelectOpt} allowClear={true} />
           </Form.Item>
-          <Form.Item name="remark" label="备注" rules={[{ required: false, message: '请输入备注' }]}>
-            <Input.TextArea placeholder="请输入备注" />
-          </Form.Item>
+          <FormRemark />
         </Form>
       </Modal>
     </>

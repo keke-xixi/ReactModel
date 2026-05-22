@@ -1,0 +1,7 @@
+.menu-form-modal .ant-form-item {
+  margin-bottom: 12px;
+}
+
+.menu-form-modal .ant-form-item-label > label {
+  height: 22px;
+}

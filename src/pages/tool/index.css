@@ -1,0 +1,70 @@
+.tool-page .tool-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tool-page .tool-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tool-page .tool-row > * {
+  flex: 1;
+  min-width: 280px;
+}
+
+.tool-page .tool-label {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.tool-page .color-rgb-inputs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  max-width: 640px;
+}
+
+.tool-page .color-rgb-inputs .ant-input-number {
+  width: 100%;
+}
+
+.tool-page .color-rgb-inputs .ant-input-number-group-wrapper {
+  width: 100%;
+}
+
+.tool-page .tool-output-error {
+  color: #ff4d4f;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.tool-page .diff-line-add {
+  background: #f6ffed;
+  color: #389e0d;
+}
+
+.tool-page .diff-line-remove {
+  background: #fff2f0;
+  color: #cf1322;
+}
+
+.tool-page .diff-line-same {
+  color: #999;
+}
+
+.tool-page pre.tool-diff {
+  margin: 0;
+  padding: 12px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 320px;
+  overflow: auto;
+}

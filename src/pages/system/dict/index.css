@@ -1,0 +1,32 @@
+.dict-page .section-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.dict-page .dict-sub-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dict-page .dict-sub-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dict-page .dict-sub-title-main {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dict-page .dict-sub-title-sub {
+  font-size: 13px;
+  color: #666;
+}
+
+.dict-form-modal .ant-form-item {
+  margin-bottom: 16px;
+}
