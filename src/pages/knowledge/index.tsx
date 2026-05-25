@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Drawer,
@@ -7,6 +7,7 @@ import {
   InputNumber,
   Modal,
   Popconfirm,
+  Segmented,
   Select,
   Space,
   Tag,
@@ -14,9 +15,14 @@ import {
   message,
 } from 'antd';
 import {
+  AppstoreOutlined,
+  ColumnHeightOutlined,
+  DeleteOutlined,
   HolderOutlined,
+  LeftOutlined,
   PlusOutlined,
   ReloadOutlined,
+  RightOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload';
@@ -26,6 +32,7 @@ import { assetUrl } from '../../utils/assetUrl';
 import {
   createKnowledgeCategory,
   createKnowledgePoint,
+  deleteKnowledgeCategory,
   deleteKnowledgePoint,
   getKnowledgeBoard,
   getKnowledgePoint,
@@ -44,6 +51,9 @@ const statusOptions = [
 ];
 
 type DropTarget = { columnId: number; index: number; overCardId?: number };
+type ViewMode = 'board' | 'focus';
+
+const COLUMN_WIDTH = 272;
 
 const swapCardsInBoard = (columns: BoardColumn[], cardIdA: number, cardIdB: number): BoardColumn[] =>
   columns.map((col) => {
@@ -109,6 +119,12 @@ const Knowledge = () => {
   const [columnDropIndex, setColumnDropIndex] = useState<number | null>(null);
   const cardDragMovedRef = useRef(false);
 
+  const [viewMode, setViewMode] = useState<ViewMode>('board');
+  const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const categoryTabsRef = useRef<HTMLDivElement>(null);
+  const columnRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
   const loadBoard = useCallback(async (kw?: string) => {
     setLoading(true);
     try {
@@ -129,6 +145,50 @@ const Knowledge = () => {
   useEffect(() => {
     loadBoard();
   }, [loadBoard]);
+
+  useEffect(() => {
+    if (!board.length) {
+      setActiveCategoryId(null);
+      return;
+    }
+    if (activeCategoryId == null || !board.some((c) => c.id === activeCategoryId)) {
+      setActiveCategoryId(board[0].id);
+    }
+  }, [board, activeCategoryId]);
+
+  const displayBoard = useMemo(() => {
+    if (viewMode === 'board') return board;
+    if (!activeCategoryId) return board.slice(0, 1);
+    const col = board.find((c) => c.id === activeCategoryId);
+    return col ? [col] : board.slice(0, 1);
+  }, [board, viewMode, activeCategoryId]);
+
+  const scrollToColumn = useCallback(
+    (columnId: number) => {
+      setActiveCategoryId(columnId);
+      if (viewMode === 'focus') return;
+      requestAnimationFrame(() => {
+        columnRefs.current.get(columnId)?.scrollIntoView({
+          behavior: 'smooth',
+          inline: 'start',
+          block: 'nearest',
+        });
+      });
+    },
+    [viewMode]
+  );
+
+  const scrollBoard = (direction: -1 | 1) => {
+    const el = boardRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * Math.max(el.clientWidth * 0.75, COLUMN_WIDTH + 16), behavior: 'smooth' });
+  };
+
+  const scrollCategoryTabs = (direction: -1 | 1) => {
+    const el = categoryTabsRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * Math.max(el.clientWidth * 0.65, 220), behavior: 'smooth' });
+  };
 
   const persistColumnPoints = async (columnId: number, points: KnowledgePoint[]) => {
     await Promise.all(
@@ -227,14 +287,35 @@ const Knowledge = () => {
     }
   };
 
-  const handleDeletePoint = async () => {
-    if (!editingPointId) return;
+  const handleDeletePoint = async (id?: number) => {
+    const pointId = id ?? editingPointId;
+    if (!pointId) return;
     try {
-      const res = await deleteKnowledgePoint(editingPointId);
+      const res = await deleteKnowledgePoint(pointId);
       if (res.data.code === 200) {
         message.success('已删除');
-        setDrawerOpen(false);
+        if (pointId === editingPointId) {
+          setDrawerOpen(false);
+          setEditingPointId(null);
+        }
         loadBoard(keyword);
+      } else {
+        message.error(res.data.message || '删除失败');
+      }
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } };
+      message.error(err.response?.data?.message || '删除失败');
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: number) => {
+    try {
+      const res = await deleteKnowledgeCategory(categoryId);
+      if (res.data.code === 200) {
+        message.success('分类已删除');
+        loadBoard(keyword);
+      } else {
+        message.error(res.data.message || '删除失败');
       }
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } } };
@@ -371,24 +452,105 @@ const Knowledge = () => {
               setCategoryModalOpen(true);
             }}
           >
-            新建分类列
+            新增
           </Button>
-          <span style={{ color: '#999', fontSize: 13 }}>
-            拖到卡片上交换位置；拖到列顶蓝条排到最前
-          </span>
         </Space>
+        <Segmented<ViewMode>
+          value={viewMode}
+          onChange={(v) => setViewMode(v)}
+          options={[
+            { value: 'focus', label: '单列', icon: <ColumnHeightOutlined /> },
+            { value: 'board', label: '看板', icon: <AppstoreOutlined /> },
+          ]}
+        />
       </div>
 
-      <div className="knowledge-board">
-        {board.map((column, colIndex) => (
-          <div key={column.id}>
+      {board.length > 0 && (
+        <div className="knowledge-nav">
+          <div className="knowledge-category-tabs-wrap">
+            <Button
+              type="default"
+              shape="circle"
+              size="small"
+              className="knowledge-nav-scroll-btn"
+              icon={<LeftOutlined />}
+              aria-label="分类向左"
+              onClick={() => scrollCategoryTabs(-1)}
+            />
+            <div ref={categoryTabsRef} className="knowledge-category-tabs">
+              {board.map((column) => (
+                <button
+                  key={column.id}
+                  type="button"
+                  className={`knowledge-category-tab${
+                    activeCategoryId === column.id ? ' knowledge-category-tab--active' : ''
+                  }`}
+                  onClick={() => scrollToColumn(column.id)}
+                >
+                  <span
+                    className="knowledge-category-tab-dot"
+                    style={{ background: column.color || '#722ed1' }}
+                  />
+                  <span className="knowledge-category-tab-name">{column.name}</span>
+                  <span className="knowledge-category-tab-count">{column.points.length}</span>
+                </button>
+              ))}
+            </div>
+            <Button
+              type="default"
+              shape="circle"
+              size="small"
+              className="knowledge-nav-scroll-btn"
+              icon={<RightOutlined />}
+              aria-label="分类向右"
+              onClick={() => scrollCategoryTabs(1)}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className={`knowledge-board-wrap${viewMode === 'focus' ? ' knowledge-board-wrap--focus' : ''}`}>
+        {viewMode === 'board' && board.length > 1 && (
+          <>
+            <Button
+              type="default"
+              shape="circle"
+              className="knowledge-scroll-btn knowledge-scroll-btn--left"
+              icon={<LeftOutlined />}
+              aria-label="向左滚动"
+              onClick={() => scrollBoard(-1)}
+            />
+            <Button
+              type="default"
+              shape="circle"
+              className="knowledge-scroll-btn knowledge-scroll-btn--right"
+              icon={<RightOutlined />}
+              aria-label="向右滚动"
+              onClick={() => scrollBoard(1)}
+            />
+          </>
+        )}
+        <div
+          ref={boardRef}
+          className={`knowledge-board${viewMode === 'focus' ? ' knowledge-board--focus' : ''}`}
+        >
+        {displayBoard.map((column) => {
+          const colIndex = board.findIndex((c) => c.id === column.id);
+          return (
+          <div
+            key={column.id}
+            ref={(el) => {
+              if (el) columnRefs.current.set(column.id, el);
+              else columnRefs.current.delete(column.id);
+            }}
+            className="knowledge-column-wrap"
+          >
             <div
               className={`knowledge-drop-slot${
                 columnDropIndex === colIndex && dragColumnIndex != null
                   ? ' knowledge-drop-slot--active'
                   : ''
               }`}
-              style={{ width: 300, marginBottom: 4 }}
               onDragOver={(e) => {
                 if (dragColumnIndex == null) return;
                 e.preventDefault();
@@ -406,6 +568,8 @@ const Knowledge = () => {
                 columnDropIndex === colIndex && dragColumnIndex != null
                   ? ' knowledge-column--drop-target'
                   : ''
+              }${
+                activeCategoryId === column.id ? ' knowledge-column--highlight' : ''
               }`}
             >
               <div
@@ -442,6 +606,16 @@ const Knowledge = () => {
                     icon={<PlusOutlined />}
                     onClick={() => openQuickAdd(column.id)}
                   />
+                  <Popconfirm
+                    title={
+                      column.points.length > 0
+                        ? `该分类下有 ${column.points.length} 个知识点，确定删除整个分类？`
+                        : '确定删除该分类？'
+                    }
+                    onConfirm={() => handleDeleteCategory(column.id)}
+                  >
+                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                  </Popconfirm>
                 </div>
               </div>
               <div className="knowledge-column-body">
@@ -544,6 +718,20 @@ const Knowledge = () => {
                           <Tag color={point.status === 1 ? 'blue' : 'default'}>
                             {point.status === 1 ? '已发布' : '草稿'}
                           </Tag>
+                          <Popconfirm
+                            title="确定删除该知识点？"
+                            onConfirm={() => handleDeletePoint(point.id)}
+                          >
+                            <Button
+                              type="text"
+                              size="small"
+                              danger
+                              icon={<DeleteOutlined />}
+                              className="knowledge-card-delete"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
+                          </Popconfirm>
                         </div>
                         <div className="knowledge-card-title">{point.title}</div>
                         {point.summary && (
@@ -579,13 +767,14 @@ const Knowledge = () => {
               </div>
             </div>
           </div>
-        ))}
-        {dragColumnIndex != null && (
+        );
+        })}
+        {viewMode === 'board' && dragColumnIndex != null && (
           <div
             className={`knowledge-drop-slot${
               columnDropIndex === board.length ? ' knowledge-drop-slot--active' : ''
             }`}
-            style={{ width: 300, alignSelf: 'stretch', minHeight: 80 }}
+            style={{ alignSelf: 'stretch', minHeight: 80 }}
             onDragOver={(e) => {
               e.preventDefault();
               setColumnDropIndex(board.length);
@@ -601,6 +790,7 @@ const Knowledge = () => {
             暂无分类，请先「新建分类列」
           </div>
         )}
+        </div>
       </div>
 
       <Modal
@@ -667,7 +857,7 @@ const Knowledge = () => {
         styles={{ body: { paddingTop: 16 } }}
         extra={
           <Space>
-            <Popconfirm title="确定删除该知识点？" onConfirm={handleDeletePoint}>
+            <Popconfirm title="确定删除该知识点？" onConfirm={() => handleDeletePoint()}>
               <Button danger size="small">
                 删除
               </Button>

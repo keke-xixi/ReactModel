@@ -4,6 +4,8 @@ export const assetUrl = (url?: string | null) => {
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
     return url;
   }
-  const base = (import.meta.env.VITE_ASSET_BASE_URL || 'http://localhost:3009').replace(/\/$/, '');
-  return `${base}${url.startsWith('/') ? url : `/${url}`}`;
+  const envBase = import.meta.env.VITE_ASSET_BASE_URL;
+  const base = (envBase === '' ? '' : envBase || 'http://localhost:3009').replace(/\/$/, '');
+  const path = url.startsWith('/') ? url : `/${url}`;
+  return base ? `${base}${path}` : path;
 };

@@ -124,7 +124,7 @@ const Dashboard = () => {
             {greeting}，欢迎回来
           </h1>
           <p>
-            React Admin 是一套轻量后台模板：菜单驱动路由、报表可视化设计、知识库看板与常用开发工具，助你快速搭建业务系统。
+            Z_Free 是一套轻量后台：菜单驱动路由、报表可视化设计、知识库看板与常用开发工具，助你快速搭建业务系统。
           </p>
           <div className="dashboard-hero-tags">
             <span className="dashboard-hero-tag">

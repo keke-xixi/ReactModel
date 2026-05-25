@@ -88,7 +88,7 @@ const Setting = () => {
             variant="borderless"
           >
             <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
-              <Descriptions.Item label="产品名称">React Admin</Descriptions.Item>
+              <Descriptions.Item label="产品名称">Z_Free</Descriptions.Item>
               <Descriptions.Item label="前端">React 18 · Vite · Ant Design 5</Descriptions.Item>
               <Descriptions.Item label="后端">Node.js · Express · MySQL</Descriptions.Item>
               <Descriptions.Item label="主题色">

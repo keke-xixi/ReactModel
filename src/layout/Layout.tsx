@@ -1,9 +1,10 @@
-import { Layout, Menu, Breadcrumb, Avatar, Typography } from 'antd';
+import { Layout, Menu, Breadcrumb, Avatar, Typography, Button, Dropdown } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import type { MenuProps } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { UserOutlined } from '@ant-design/icons';
-import { getMenu } from '../api/home';
+import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
+import { getMe } from '../api/auth';
+import useAuthStore from '../store/authStore';
 import { enrichMenuItems, breadcrumbLabels } from './menuIcons';
 import './Layout.css';
 
@@ -13,9 +14,11 @@ const { Text } = Typography;
 const AppLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, menus, setMenus, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
-  const [menuItems, setMenuItems] = useState<MenuProps['items']>([]);
   const [now, setNow] = useState(() => new Date());
+
+  const menuItems = useMemo(() => enrichMenuItems(menus), [menus]);
 
   const menuKey = useMemo(() => {
     const path = location.pathname.replace(/^\//, '');
@@ -29,25 +32,25 @@ const AppLayout = () => {
     if (segments.length === 0) {
       return [{ title: '首页' }];
     }
-    return segments.map((seg, i) => ({
+    return segments.map((seg) => ({
       title: breadcrumbLabels[seg] || seg,
-      ...(i < segments.length - 1 ? {} : {}),
     }));
   }, [location.pathname]);
 
   useEffect(() => {
-    const fetchMenu = async () => {
+    const refresh = async () => {
       try {
-        const res = await getMenu({ menuName: '' });
+        const res = await getMe();
         if (res.data.code === 200) {
-          setMenuItems(enrichMenuItems(res.data.data ?? []));
+          setMenus(enrichMenuItems(res.data.data.menus ?? []));
         }
-      } catch (error) {
-        console.error('Failed to load menu:', error);
+      } catch {
+        logout();
+        navigate('/login', { replace: true });
       }
     };
-    fetchMenu();
-  }, []);
+    refresh();
+  }, [setMenus, logout, navigate]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000);
@@ -63,6 +66,20 @@ const AppLayout = () => {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: '退出登录',
+      onClick: handleLogout,
+    },
+  ];
+
   const timeStr = now.toLocaleString('zh-CN', {
     weekday: 'short',
     month: 'numeric',
@@ -70,6 +87,8 @@ const AppLayout = () => {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  const displayName = user?.nickname || user?.username || '用户';
 
   return (
     <Layout className="app-layout">
@@ -84,7 +103,7 @@ const AppLayout = () => {
       >
         <div className="app-logo">
           <div className="app-logo-icon">RA</div>
-          {!collapsed && <span className="app-logo-text">React Admin</span>}
+          {!collapsed && <span className="app-logo-text">Z_Free</span>}
         </div>
         <Menu
           className="app-sider-menu"
@@ -104,10 +123,12 @@ const AppLayout = () => {
             <Text className="app-header-time" type="secondary">
               {timeStr}
             </Text>
-            <div className="app-user">
-              <Avatar size={32} icon={<UserOutlined />} style={{ background: '#4f46e5' }} />
-              <span className="app-user-name">管理员</span>
-            </div>
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+              <div className="app-user">
+                <Avatar size={32} icon={<UserOutlined />} style={{ background: '#4f46e5' }} />
+                <span className="app-user-name">{displayName}</span>
+              </div>
+            </Dropdown>
           </div>
         </Header>
         <Content className="app-content">
