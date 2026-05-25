@@ -29,7 +29,7 @@ const Setting = () => {
                 外观
               </>
             }
-            bordered={false}
+            variant="borderless"
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
@@ -61,7 +61,7 @@ const Setting = () => {
                 通知
               </>
             }
-            bordered={false}
+            variant="borderless"
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
@@ -85,7 +85,7 @@ const Setting = () => {
                 关于
               </>
             }
-            bordered={false}
+            variant="borderless"
           >
             <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
               <Descriptions.Item label="产品名称">React Admin</Descriptions.Item>

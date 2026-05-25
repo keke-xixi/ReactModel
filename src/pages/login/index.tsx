@@ -30,7 +30,7 @@ const Login = () => {
         </div>
       </aside>
       <div className="login-form-wrap">
-        <Card className="login-card" title="欢迎登录" bordered={false}>
+        <Card className="login-card" title="欢迎登录" variant="borderless">
           <p className="login-subtitle">演示环境，任意账号即可进入</p>
           <Form layout="vertical" onFinish={onFinish} size="large">
             <Form.Item

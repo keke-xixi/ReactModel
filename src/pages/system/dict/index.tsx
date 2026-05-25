@@ -288,7 +288,7 @@ const SystemDict = () => {
 
   if (view === 'data' && currentType) {
     return (
-      <div className="dict-page">
+      <div className="page-container dict-page">
         <div className="dict-sub-header">
           <Button icon={<ArrowLeftOutlined />} onClick={backToTypes}>
             返回
@@ -301,7 +301,7 @@ const SystemDict = () => {
           </div>
         </div>
 
-        <Card size="small">
+        <Card size="small" variant="outlined">
           <Space style={{ marginBottom: 16 }}>
             <Button type="primary" onClick={openDataCreate}>
               新增数据
@@ -359,8 +359,8 @@ const SystemDict = () => {
   }
 
   return (
-    <div className="dict-page">
-      <Card size="small">
+    <div className="page-container dict-page">
+      <Card size="small" variant="outlined">
         <div className="section-title">字典类型</div>
         <Space style={{ marginBottom: 16 }}>
           <Button type="primary" onClick={openTypeCreate}>

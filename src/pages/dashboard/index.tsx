@@ -140,7 +140,7 @@ const Dashboard = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="dashboard-stat-card" bordered={false}>
+          <Card className="dashboard-stat-card" variant="borderless">
             <div className="dashboard-stat-icon purple">
               <BarChartOutlined />
             </div>
@@ -155,7 +155,7 @@ const Dashboard = () => {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="dashboard-stat-card" bordered={false}>
+          <Card className="dashboard-stat-card" variant="borderless">
             <div className="dashboard-stat-icon cyan">
               <BookOutlined />
             </div>
@@ -166,7 +166,7 @@ const Dashboard = () => {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="dashboard-stat-card" bordered={false}>
+          <Card className="dashboard-stat-card" variant="borderless">
             <div className="dashboard-stat-icon green">
               <ToolOutlined />
             </div>
@@ -177,7 +177,7 @@ const Dashboard = () => {
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="dashboard-stat-card" bordered={false}>
+          <Card className="dashboard-stat-card" variant="borderless">
             <div className="dashboard-stat-icon amber">
               <DatabaseOutlined />
             </div>
@@ -194,13 +194,13 @@ const Dashboard = () => {
           <Card
             className="dashboard-chart-card"
             title="本周访问趋势（演示）"
-            bordered={false}
+            variant="borderless"
           >
             <ReactECharts option={chartOption} style={{ height: 280 }} />
           </Card>
         </Col>
         <Col xs={24} lg={10}>
-          <Card title="快捷入口" className="dashboard-quick-card" bordered={false}>
+          <Card title="快捷入口" className="dashboard-quick-card" variant="borderless">
             <Row gutter={[12, 12]}>
               {quickLinks.map((item) => (
                 <Col span={24} key={item.key}>
@@ -231,7 +231,7 @@ const Dashboard = () => {
 
       <Row gutter={[16, 16]}>
         <Col span={24}>
-          <Card title="功能动态" bordered={false}>
+          <Card title="功能动态" variant="borderless">
             <Timeline
               items={[
                 {
