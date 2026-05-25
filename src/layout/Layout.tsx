@@ -6,6 +6,7 @@ import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import { getMe } from '../api/auth';
 import useAuthStore from '../store/authStore';
 import { enrichMenuItems, breadcrumbLabels } from './menuIcons';
+import { getFirstMenuPath, menuHasKey } from '../utils/firstMenuPath';
 import './Layout.css';
 
 const { Header, Sider, Content } = Layout;
@@ -51,6 +52,14 @@ const AppLayout = () => {
     };
     refresh();
   }, [setMenus, logout, navigate]);
+
+  useEffect(() => {
+    if (!menus?.length) return;
+    const onRoot = location.pathname === '/' || location.pathname === '/home';
+    if (onRoot && !menuHasKey(menus, 'home')) {
+      navigate(getFirstMenuPath(menus), { replace: true });
+    }
+  }, [menus, location.pathname, navigate]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000);

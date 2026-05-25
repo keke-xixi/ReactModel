@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { LockOutlined, UserOutlined, CheckCircleOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../../api/auth';
+import { login, getMe } from '../../api/auth';
 import useAuthStore from '../../store/authStore';
 import { enrichMenuItems } from '../../layout/menuIcons';
+import { getFirstMenuPath } from '../../utils/firstMenuPath';
 import './login.css';
 
 const FEATURES = [
@@ -17,6 +18,7 @@ const Login = () => {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const token = useAuthStore((s) => s.token);
+  const setMenus = useAuthStore((s) => s.setMenus);
   const [submitting, setSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -26,8 +28,25 @@ const Login = () => {
   }, []);
 
   useEffect(() => {
-    if (token) navigate('/', { replace: true });
-  }, [token, navigate]);
+    if (!token) return;
+
+    const redirect = async () => {
+      let menus = useAuthStore.getState().menus;
+      if (!menus?.length) {
+        try {
+          const res = await getMe();
+          if (res.data.code !== 200) return;
+          menus = enrichMenuItems(res.data.data.menus ?? []);
+          setMenus(menus);
+        } catch {
+          return;
+        }
+      }
+      navigate(getFirstMenuPath(menus), { replace: true });
+    };
+
+    redirect();
+  }, [token, navigate, setMenus]);
 
   const onFinish = async (values: { username: string; password: string }) => {
     setSubmitting(true);
@@ -38,9 +57,10 @@ const Login = () => {
         return;
       }
       const { token, user, menus } = res.data.data;
-      setAuth(token, user, enrichMenuItems(menus ?? []));
+      const enrichedMenus = enrichMenuItems(menus ?? []);
+      setAuth(token, user, enrichedMenus);
       message.success('登录成功');
-      navigate('/');
+      navigate(getFirstMenuPath(enrichedMenus), { replace: true });
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } } };
       message.error(err.response?.data?.message || '登录失败');
@@ -124,8 +144,8 @@ const Login = () => {
           </Form>
 
           <p className="login-hint">
-            {/* <span className="login-hint-sep">·</span>
-            测试 <code>admin</code> / <code>1234</code> */}
+            <span className="login-hint-sep">·</span>
+            测试 <code>admin</code> / <code>1234</code>
           </p>
         </div>
 

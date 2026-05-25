@@ -4,7 +4,7 @@ import zhCN from 'antd/locale/zh_CN';
 import PrivateRoute from './components/PrivateRoute';
 import Login from './pages/login';
 import AppLayout from './layout/Layout';
-import Dashboard from './pages/dashboard';
+import HomeEntry from './pages/dashboard/HomeEntry';
 import Report from './pages/report';
 import ReportDesign from './pages/report/design';
 import ReportPreview from './pages/report/preview';
@@ -26,8 +26,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<PrivateRoute />}>
             <Route path="/" element={<AppLayout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="home" element={<Dashboard />} />
+              <Route index element={<HomeEntry />} />
+              <Route path="home" element={<HomeEntry />} />
               <Route path="report" element={<Report />} />
               <Route path="report/design/:id" element={<ReportDesign />} />
               <Route path="report/preview/:id" element={<ReportPreview />} />
