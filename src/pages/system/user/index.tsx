@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
+  Descriptions,
   Form,
   Input,
   Modal,
@@ -17,16 +18,19 @@ import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
 import { getMenuList, type MenuRecord } from '../../../api/menu';
 import {
+  clearUserData,
   createUser,
   deleteUser,
   getUser,
+  getUserDataStats,
   getUserList,
+  transferUserData,
   updateUser,
   type SysUser,
+  type UserDataStats,
   type UserFormValues,
 } from '../../../api/user';
 import useAuthStore from '../../../store/authStore';
-import './index.css';
 import './index.css';
 
 const statusOptions = [
@@ -42,6 +46,14 @@ const defaultForm: UserFormValues = {
   is_admin: 0,
   menu_ids: [],
 };
+
+const STAT_LABELS: { key: keyof UserDataStats; label: string }[] = [
+  { key: 'knowledge_category', label: '知识分类' },
+  { key: 'knowledge_point', label: '知识点' },
+  { key: 'important_note', label: '重要笔记' },
+  { key: 'software', label: '软件库' },
+  { key: 'report', label: '报表' },
+];
 
 const buildMenuTreeData = (list: MenuRecord[], parentId = 0): DataNode[] =>
   list
@@ -67,6 +79,16 @@ const SystemUsers = () => {
   const [editing, setEditing] = useState<SysUser | null>(null);
   const [checkedMenuIds, setCheckedMenuIds] = useState<number[]>([]);
 
+  const [dataModalOpen, setDataModalOpen] = useState(false);
+  const [dataUser, setDataUser] = useState<SysUser | null>(null);
+  const [dataStats, setDataStats] = useState<UserDataStats | null>(null);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataActionLoading, setDataActionLoading] = useState(false);
+
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferFrom, setTransferFrom] = useState<SysUser | null>(null);
+  const [transferToId, setTransferToId] = useState<number | null>(null);
+
   const menuTree = useMemo(() => buildMenuTreeData(menuList), [menuList]);
 
   const loadList = useCallback(async () => {
@@ -91,6 +113,22 @@ const SystemUsers = () => {
       message.error('加载菜单列表失败');
     }
   }, []);
+
+  const loadUserStats = async (user: SysUser) => {
+    setDataLoading(true);
+    try {
+      const res = await getUserDataStats(user.id);
+      if (res.data.code === 200) {
+        setDataUser(res.data.data.user);
+        setDataStats(res.data.data.stats);
+      }
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } };
+      message.error(err.response?.data?.message || '加载数据统计失败');
+    } finally {
+      setDataLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!currentUser?.is_admin) return;
@@ -130,6 +168,60 @@ const SystemUsers = () => {
     }
   };
 
+  const openDataModal = async (record: SysUser) => {
+    setDataModalOpen(true);
+    setDataUser(record);
+    setDataStats(null);
+    await loadUserStats(record);
+  };
+
+  const openTransferModal = async (record: SysUser) => {
+    setTransferFrom(record);
+    setTransferToId(null);
+    setTransferOpen(true);
+    await loadUserStats(record);
+  };
+
+  const handleClearData = async () => {
+    if (!dataUser) return;
+    setDataActionLoading(true);
+    try {
+      const res = await clearUserData(dataUser.id);
+      if (res.data.code === 200) {
+        message.success('数据已清空');
+        setDataStats(res.data.data.after);
+      }
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } };
+      message.error(err.response?.data?.message || '清空失败');
+    } finally {
+      setDataActionLoading(false);
+    }
+  };
+
+  const handleTransfer = async () => {
+    if (!transferFrom || !transferToId) {
+      message.warning('请选择目标用户');
+      return;
+    }
+    setDataActionLoading(true);
+    try {
+      const res = await transferUserData(transferFrom.id, transferToId);
+      if (res.data.code === 200) {
+        message.success('数据已转移');
+        setTransferOpen(false);
+        if (dataModalOpen && dataUser?.id === transferFrom.id) {
+          await loadUserStats(transferFrom);
+        }
+      }
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } };
+      message.error(err.response?.data?.message || '转移失败');
+    } finally {
+      setDataActionLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     const values = await form.validateFields();
     const payload: UserFormValues = {
@@ -148,9 +240,7 @@ const SystemUsers = () => {
       const body = editing
         ? { ...payload, ...(payload.password ? {} : { password: undefined }) }
         : payload;
-      const res = editing
-        ? await updateUser(editing.id, body)
-        : await createUser(body);
+      const res = editing ? await updateUser(editing.id, body) : await createUser(body);
       if (res.data.code === 200) {
         message.success(editing ? '已更新' : '已创建');
         setModalOpen(false);
@@ -179,34 +269,51 @@ const SystemUsers = () => {
     }
   };
 
+  const transferTargetOptions = useMemo(
+    () =>
+      list
+        .filter((u) => u.id !== transferFrom?.id)
+        .map((u) => ({
+          value: u.id,
+          label: `${u.username}${u.nickname ? `（${u.nickname}）` : ''}`,
+        })),
+    [list, transferFrom]
+  );
+
   const columns: ColumnsType<SysUser> = [
-    { title: '用户名', dataIndex: 'username', key: 'username', width: 140 },
-    { title: '昵称', dataIndex: 'nickname', key: 'nickname', width: 140 },
+    { title: '用户名', dataIndex: 'username', key: 'username', width: 120 },
+    { title: '昵称', dataIndex: 'nickname', key: 'nickname', width: 120 },
     {
       title: '角色',
       dataIndex: 'is_admin',
       key: 'is_admin',
-      width: 100,
+      width: 90,
       render: (v) => (Number(v) === 1 ? <Tag color="purple">管理员</Tag> : <Tag>普通用户</Tag>),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 90,
+      width: 80,
       render: (s) => (Number(s) === 1 ? <Tag color="green">正常</Tag> : <Tag>停用</Tag>),
     },
     {
       title: '操作',
       key: 'actions',
-      width: 160,
+      width: 280,
       render: (_, record) => (
-        <Space size="small">
-          <Button type="link" onClick={() => openEdit(record)}>
+        <Space size="small" wrap>
+          <Button type="link" size="small" onClick={() => openEdit(record)}>
             编辑
           </Button>
+          <Button type="link" size="small" onClick={() => openDataModal(record)}>
+            数据
+          </Button>
+          <Button type="link" size="small" onClick={() => openTransferModal(record)}>
+            转移
+          </Button>
           <Popconfirm title="确定删除该用户？" onConfirm={() => handleDelete(record.id)}>
-            <Button type="link" danger disabled={record.id === currentUser?.id}>
+            <Button type="link" size="small" danger disabled={record.id === currentUser?.id}>
               删除
             </Button>
           </Popconfirm>
@@ -214,6 +321,20 @@ const SystemUsers = () => {
       ),
     },
   ];
+
+  const renderStats = (stats: UserDataStats | null) => {
+    if (!stats) return null;
+    return (
+      <Descriptions column={1} size="small" bordered className="user-data-stats">
+        {STAT_LABELS.map(({ key, label }) => (
+          <Descriptions.Item key={key} label={label}>
+            {stats[key]}
+          </Descriptions.Item>
+        ))}
+        <Descriptions.Item label="合计">{stats.total}</Descriptions.Item>
+      </Descriptions>
+    );
+  };
 
   if (!currentUser?.is_admin) {
     return <div className="page-container">无权限访问用户管理</div>;
@@ -225,7 +346,7 @@ const SystemUsers = () => {
         <Button type="primary" onClick={openCreate}>
           新增用户
         </Button>
-        </div>
+      </div>
 
       <Table rowKey="id" loading={loading} columns={columns} dataSource={list} pagination={{ pageSize: 10 }} />
 
@@ -242,31 +363,31 @@ const SystemUsers = () => {
         <Form form={form} layout="vertical" requiredMark>
           <div className="system-users-modal-body">
             <div className="system-users-form-left">
-          <Form.Item name="username" label="用户名" rules={[{ required: true, message: '请输入用户名' }]}>
-            <Input placeholder="登录账号" disabled={Boolean(editing)} />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label={editing ? '新密码（留空不修改）' : '密码'}
-            rules={editing ? [] : [{ required: true, message: '请输入密码' }, { min: 4, message: '至少 4 位' }]}
-          >
-            <Input.Password placeholder={editing ? '不修改请留空' : '初始密码'} />
-          </Form.Item>
-          <Form.Item name="nickname" label="昵称">
-            <Input placeholder="显示名称" />
-          </Form.Item>
-          <Form.Item name="status" label="状态" rules={[{ required: true }]}>
-            <Select options={statusOptions} />
-          </Form.Item>
-          <Form.Item
-            name="is_admin"
-            label="管理员"
-            valuePropName="checked"
-            getValueFromEvent={(v) => (v ? 1 : 0)}
-            getValueProps={(v) => ({ checked: Number(v) === 1 })}
-          >
-            <Switch checkedChildren="是" unCheckedChildren="否" />
-          </Form.Item>
+              <Form.Item name="username" label="用户名" rules={[{ required: true, message: '请输入用户名' }]}>
+                <Input placeholder="登录账号" disabled={Boolean(editing)} />
+              </Form.Item>
+              <Form.Item
+                name="password"
+                label={editing ? '新密码（留空不修改）' : '密码'}
+                rules={editing ? [] : [{ required: true, message: '请输入密码' }, { min: 4, message: '至少 4 位' }]}
+              >
+                <Input.Password placeholder={editing ? '不修改请留空' : '初始密码'} />
+              </Form.Item>
+              <Form.Item name="nickname" label="昵称">
+                <Input placeholder="显示名称" />
+              </Form.Item>
+              <Form.Item name="status" label="状态" rules={[{ required: true }]}>
+                <Select options={statusOptions} />
+              </Form.Item>
+              <Form.Item
+                name="is_admin"
+                label="管理员"
+                valuePropName="checked"
+                getValueFromEvent={(v) => (v ? 1 : 0)}
+                getValueProps={(v) => ({ checked: Number(v) === 1 })}
+              >
+                <Switch checkedChildren="是" unCheckedChildren="否" />
+              </Form.Item>
             </div>
             <div className="system-users-form-right">
               <div className="system-users-menu-label">可访问菜单</div>
@@ -286,6 +407,61 @@ const SystemUsers = () => {
               </div>
             </div>
           </div>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={`用户数据 · ${dataUser?.username ?? ''}`}
+        open={dataModalOpen}
+        onCancel={() => setDataModalOpen(false)}
+        footer={[
+          <Button key="close" onClick={() => setDataModalOpen(false)}>
+            关闭
+          </Button>,
+          <Popconfirm
+            key="clear"
+            title="确定清空该用户全部业务数据？"
+            description="将删除知识点、笔记、软件库、报表，且不可恢复"
+            onConfirm={handleClearData}
+            disabled={!dataStats?.total || dataUser?.id === currentUser?.id}
+          >
+            <Button danger loading={dataActionLoading} disabled={dataUser?.id === currentUser?.id}>
+              清空数据
+            </Button>
+          </Popconfirm>,
+        ]}
+      >
+        {dataLoading ? (
+          <p className="user-data-loading">加载中…</p>
+        ) : (
+          <>
+            <p className="user-data-tip">范围：知识点（分类+条目）、重要笔记、软件库、报表模板</p>
+            {renderStats(dataStats)}
+          </>
+        )}
+      </Modal>
+
+      <Modal
+        title={`转移数据 · ${transferFrom?.username ?? ''}`}
+        open={transferOpen}
+        onOk={handleTransfer}
+        onCancel={() => setTransferOpen(false)}
+        confirmLoading={dataActionLoading}
+        okText="确认转移"
+      >
+        <p className="user-data-tip">将来源用户下列数据全部转给目标用户（来源用户数据将变为 0）</p>
+        {renderStats(dataStats)}
+        <Form layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="目标用户" required>
+            <Select
+              placeholder="选择接收数据的用户"
+              options={transferTargetOptions}
+              value={transferToId ?? undefined}
+              onChange={setTransferToId}
+              showSearch
+              optionFilterProp="label"
+            />
+          </Form.Item>
         </Form>
       </Modal>
     </div>

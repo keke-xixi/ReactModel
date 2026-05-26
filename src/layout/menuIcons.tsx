@@ -12,6 +12,7 @@ import {
   MenuOutlined,
   FileTextOutlined,
   UserOutlined,
+  CloudDownloadOutlined,
 } from '@ant-design/icons';
 
 const ICON_BY_KEY: Record<string, ReactNode> = {
@@ -19,6 +20,7 @@ const ICON_BY_KEY: Record<string, ReactNode> = {
   report: <BarChartOutlined />,
   knowledge: <BookOutlined />,
   note: <PushpinOutlined />,
+  software: <CloudDownloadOutlined />,
   system: <SettingOutlined />,
   'system-params': <DatabaseOutlined />,
   'system-menu': <MenuOutlined />,
@@ -49,6 +51,7 @@ export const breadcrumbLabels: Record<string, string> = {
   report: '报表',
   knowledge: '知识点',
   note: '重要笔记',
+  software: '软件库',
   'system-params': '系统参数',
   'system-menu': '菜单管理',
   'system-dict': '字典管理',

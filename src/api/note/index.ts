@@ -1,11 +1,19 @@
 import request from '../request';
 import type { ApiResponse } from '../../utils/api';
 
+export interface NoteAttachment {
+  url: string;
+  name: string;
+  type: 'image' | 'file';
+  size?: number;
+}
+
 export interface ImportantNote {
   id: number;
   title: string;
   summary: string | null;
   content: string | null;
+  attachments?: NoteAttachment[];
   category: string | null;
   color: string;
   is_pinned: number;
@@ -36,3 +44,11 @@ export const updateNote = (id: number, data: Partial<ImportantNote>) =>
 
 export const deleteNote = (id: number) =>
   request.delete<ApiResponse<null>>(`/note/${id}`);
+
+export const uploadNoteFile = (file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  return request.post<ApiResponse<NoteAttachment>>('/note/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};

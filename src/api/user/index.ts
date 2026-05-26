@@ -31,3 +31,26 @@ export const updateUser = (id: number, data: Partial<UserFormValues>) =>
   request.put<ApiResponse<SysUser>>(`/user/${id}`, data);
 
 export const deleteUser = (id: number) => request.delete<ApiResponse<null>>(`/user/${id}`);
+
+export interface UserDataStats {
+  knowledge_category: number;
+  knowledge_point: number;
+  important_note: number;
+  software: number;
+  report: number;
+  total: number;
+}
+
+export const getUserDataStats = (id: number) =>
+  request.get<ApiResponse<{ user: SysUser; stats: UserDataStats }>>(`/user/${id}/data-stats`);
+
+export const clearUserData = (id: number) =>
+  request.post<ApiResponse<{ user: SysUser; before: UserDataStats; after: UserDataStats }>>(
+    `/user/${id}/data/clear`
+  );
+
+export const transferUserData = (fromUserId: number, toUserId: number) =>
+  request.post<ApiResponse<unknown>>('/user/data/transfer', {
+    from_user_id: fromUserId,
+    to_user_id: toUserId,
+  });

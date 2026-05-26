@@ -15,6 +15,7 @@ import SystemUsers from './pages/system/user';
 import Setting from './pages/setting';
 import Knowledge from './pages/knowledge';
 import Note from './pages/note';
+import Software from './pages/software';
 import Tool from './pages/tool';
 import { appTheme } from './theme/antdTheme';
 
@@ -39,6 +40,7 @@ function App() {
               <Route path="tool" element={<Tool />} />
               <Route path="knowledge" element={<Knowledge />} />
               <Route path="note" element={<Note />} />
+              <Route path="software" element={<Software />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

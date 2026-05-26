@@ -44,6 +44,21 @@ const defaultForm: MenuFormValues = {
   reserved2: '',
 };
 
+function toFormValues(record: MenuRecord): MenuFormValues {
+  return {
+    parent_id: Number(record.parent_id) || 0,
+    type: Number(record.type) || 2,
+    label: record.label ?? '',
+    menu_key: record.menu_key ?? '',
+    path: record.path ?? '',
+    icon: record.icon ?? '',
+    sort_order: Number(record.sort_order) || 0,
+    status: Number(record.status) ?? 1,
+    reserved1: record.reserved1 ?? '',
+    reserved2: record.reserved2 ?? '',
+  };
+}
+
 const SystemMenu = () => {
   const [form] = Form.useForm<MenuFormValues>();
   const [list, setList] = useState<MenuRecord[]>([]);
@@ -80,27 +95,23 @@ const SystemMenu = () => {
     loadList();
   }, [loadList]);
 
+  const fillForm = (record: MenuRecord | null) => {
+    form.resetFields();
+    form.setFieldsValue(record ? toFormValues(record) : defaultForm);
+  };
+
   const openCreate = () => {
     setEditing(null);
-    form.setFieldsValue(defaultForm);
     setModalOpen(true);
   };
 
   const openEdit = (record: MenuRecord) => {
     setEditing(record);
-    form.setFieldsValue({
-      parent_id: record.parent_id,
-      type: record.type,
-      label: record.label,
-      menu_key: record.menu_key,
-      path: record.path ?? '',
-      icon: record.icon ?? '',
-      sort_order: record.sort_order,
-      status: record.status,
-      reserved1: record.reserved1 ?? '',
-      reserved2: record.reserved2 ?? '',
-    });
     setModalOpen(true);
+  };
+
+  const handleModalAfterOpen = (open: boolean) => {
+    if (open) fillForm(editing);
   };
 
   const handleSubmit = async () => {
@@ -239,7 +250,11 @@ const SystemMenu = () => {
         title={editing ? '编辑菜单' : '新增菜单'}
         open={modalOpen}
         onOk={handleSubmit}
-        onCancel={() => setModalOpen(false)}
+        onCancel={() => {
+          setModalOpen(false);
+          setEditing(null);
+        }}
+        afterOpenChange={handleModalAfterOpen}
         confirmLoading={saving}
         destroyOnClose
         width={720}
@@ -256,7 +271,6 @@ const SystemMenu = () => {
           form={form}
           layout="vertical"
           size="middle"
-          preserve={false}
           requiredMark
           className="menu-form-modal"
         >

@@ -167,3 +167,100 @@
 .note-drawer-form .ant-input {
   font-size: 14px;
 }
+
+.note-drawer .ant-drawer-body {
+  padding-top: 16px;
+}
+
+.note-form-content {
+  margin-bottom: 8px;
+}
+
+.note-form-content .ant-form-item-label > label {
+  font-weight: 600;
+}
+
+.note-content-textarea {
+  font-size: 14px;
+  line-height: 1.65;
+  resize: vertical;
+  min-height: 280px;
+}
+
+.note-attachments-block {
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border: 1px solid #e8e8e8;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.note-attachments-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.note-attachments-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.note-attachments-hint {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.note-attachments-uploads {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.note-upload-trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.note-file-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.note-file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-top: 8px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #eee;
+}
+
+.note-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #4f46e5;
+}
+
+.note-card-attachments {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #94a3b8;
+}

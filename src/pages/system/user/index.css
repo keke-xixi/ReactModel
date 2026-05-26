@@ -35,6 +35,22 @@
   content: '';
 }
 
+.user-data-tip {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.user-data-loading {
+  margin: 24px 0;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.user-data-stats {
+  margin-top: 8px;
+}
+
 .system-users-menu-tree {
   flex: 1;
   min-height: 320px;
