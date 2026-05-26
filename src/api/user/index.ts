@@ -54,3 +54,20 @@ export const transferUserData = (fromUserId: number, toUserId: number) =>
     from_user_id: fromUserId,
     to_user_id: toUserId,
   });
+
+export type CopyDataModule = 'knowledge' | 'note' | 'software';
+
+export interface CopyUserDataResult {
+  from: SysUser;
+  to: SysUser;
+  modules: CopyDataModule[];
+  copied: Pick<UserDataStats, 'knowledge_category' | 'knowledge_point' | 'important_note' | 'software'>;
+  afterTo: UserDataStats;
+}
+
+export const copyUserData = (fromUserId: number, toUserId: number, modules: CopyDataModule[]) =>
+  request.post<ApiResponse<CopyUserDataResult>>('/user/data/copy', {
+    from_user_id: fromUserId,
+    to_user_id: toUserId,
+    modules,
+  });

@@ -7,7 +7,14 @@ const request: AxiosInstance = axios.create({
 
 request.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // 添加token
+    // FormData 必须由浏览器自动带 boundary，手动写 multipart/form-data 会导致线上上传失败
+    if (config.data instanceof FormData) {
+      if (config.headers && 'Content-Type' in config.headers) {
+        delete config.headers['Content-Type'];
+      }
+      config.timeout = config.timeout ?? 600_000;
+    }
+
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

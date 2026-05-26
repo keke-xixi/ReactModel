@@ -45,10 +45,13 @@ export const updateNote = (id: number, data: Partial<ImportantNote>) =>
 export const deleteNote = (id: number) =>
   request.delete<ApiResponse<null>>(`/note/${id}`);
 
+export const reorderNotes = (orders: { id: number; sort_order: number }[]) =>
+  request.post<ApiResponse<null>>('/note/reorder', { orders });
+
 export const uploadNoteFile = (file: File) => {
   const form = new FormData();
   form.append('file', file);
   return request.post<ApiResponse<NoteAttachment>>('/note/upload', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120_000,
   });
 };

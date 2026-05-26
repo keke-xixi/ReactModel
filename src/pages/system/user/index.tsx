@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
+  Checkbox,
   Descriptions,
   Form,
   Input,
@@ -19,6 +20,7 @@ import type { DataNode } from 'antd/es/tree';
 import { getMenuList, type MenuRecord } from '../../../api/menu';
 import {
   clearUserData,
+  copyUserData,
   createUser,
   deleteUser,
   getUser,
@@ -26,6 +28,7 @@ import {
   getUserList,
   transferUserData,
   updateUser,
+  type CopyDataModule,
   type SysUser,
   type UserDataStats,
   type UserFormValues,
@@ -53,6 +56,12 @@ const STAT_LABELS: { key: keyof UserDataStats; label: string }[] = [
   { key: 'important_note', label: '重要笔记' },
   { key: 'software', label: '软件库' },
   { key: 'report', label: '报表' },
+];
+
+const COPY_MODULE_OPTIONS: { value: CopyDataModule; label: string }[] = [
+  { value: 'knowledge', label: '知识点（含分类）' },
+  { value: 'note', label: '重要笔记' },
+  { value: 'software', label: '软件库' },
 ];
 
 const buildMenuTreeData = (list: MenuRecord[], parentId = 0): DataNode[] =>
@@ -88,6 +97,11 @@ const SystemUsers = () => {
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferFrom, setTransferFrom] = useState<SysUser | null>(null);
   const [transferToId, setTransferToId] = useState<number | null>(null);
+
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [copyFrom, setCopyFrom] = useState<SysUser | null>(null);
+  const [copyToId, setCopyToId] = useState<number | null>(null);
+  const [copyModules, setCopyModules] = useState<CopyDataModule[]>(['knowledge', 'note', 'software']);
 
   const menuTree = useMemo(() => buildMenuTreeData(menuList), [menuList]);
 
@@ -182,6 +196,14 @@ const SystemUsers = () => {
     await loadUserStats(record);
   };
 
+  const openCopyModal = async (record: SysUser) => {
+    setCopyFrom(record);
+    setCopyToId(null);
+    setCopyModules(['knowledge', 'note', 'software']);
+    setCopyOpen(true);
+    await loadUserStats(record);
+  };
+
   const handleClearData = async () => {
     if (!dataUser) return;
     setDataActionLoading(true);
@@ -217,6 +239,35 @@ const SystemUsers = () => {
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string } } };
       message.error(err.response?.data?.message || '转移失败');
+    } finally {
+      setDataActionLoading(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!copyFrom || !copyToId) {
+      message.warning('请选择目标用户');
+      return;
+    }
+    if (!copyModules.length) {
+      message.warning('请至少选择一项要复制的数据');
+      return;
+    }
+    setDataActionLoading(true);
+    try {
+      const res = await copyUserData(copyFrom.id, copyToId, copyModules);
+      if (res.data.code === 200) {
+        const copied = res.data.data?.copied;
+        const parts: string[] = [];
+        if (copied?.knowledge_point) parts.push(`${copied.knowledge_point} 条知识点`);
+        if (copied?.important_note) parts.push(`${copied.important_note} 条笔记`);
+        if (copied?.software) parts.push(`${copied.software} 个软件`);
+        message.success(parts.length ? `已复制：${parts.join('、')}` : '复制完成');
+        setCopyOpen(false);
+      }
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } };
+      message.error(err.response?.data?.message || '复制失败');
     } finally {
       setDataActionLoading(false);
     }
@@ -280,6 +331,17 @@ const SystemUsers = () => {
     [list, transferFrom]
   );
 
+  const copyTargetOptions = useMemo(
+    () =>
+      list
+        .filter((u) => u.id !== copyFrom?.id)
+        .map((u) => ({
+          value: u.id,
+          label: `${u.username}${u.nickname ? `（${u.nickname}）` : ''}`,
+        })),
+    [list, copyFrom]
+  );
+
   const columns: ColumnsType<SysUser> = [
     { title: '用户名', dataIndex: 'username', key: 'username', width: 120 },
     { title: '昵称', dataIndex: 'nickname', key: 'nickname', width: 120 },
@@ -300,7 +362,7 @@ const SystemUsers = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 280,
+      width: 320,
       render: (_, record) => (
         <Space size="small" wrap>
           <Button type="link" size="small" onClick={() => openEdit(record)}>
@@ -308,6 +370,9 @@ const SystemUsers = () => {
           </Button>
           <Button type="link" size="small" onClick={() => openDataModal(record)}>
             数据
+          </Button>
+          <Button type="link" size="small" onClick={() => openCopyModal(record)}>
+            复制
           </Button>
           <Button type="link" size="small" onClick={() => openTransferModal(record)}>
             转移
@@ -439,6 +504,39 @@ const SystemUsers = () => {
             {renderStats(dataStats)}
           </>
         )}
+      </Modal>
+
+      <Modal
+        title={`复制数据 · ${copyFrom?.username ?? ''}`}
+        open={copyOpen}
+        onOk={handleCopy}
+        onCancel={() => setCopyOpen(false)}
+        confirmLoading={dataActionLoading}
+        okText="确认复制"
+      >
+        <p className="user-data-tip">
+          将选中模块克隆到目标用户；来源用户数据保留（与「转移」不同，不会清空来源）
+        </p>
+        {dataLoading ? <p className="user-data-loading">加载中…</p> : renderStats(dataStats)}
+        <Form layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item label="复制内容" required>
+            <Checkbox.Group
+              options={COPY_MODULE_OPTIONS}
+              value={copyModules}
+              onChange={(vals) => setCopyModules(vals as CopyDataModule[])}
+            />
+          </Form.Item>
+          <Form.Item label="目标用户" required>
+            <Select
+              placeholder="选择接收复制的用户"
+              options={copyTargetOptions}
+              value={copyToId ?? undefined}
+              onChange={setCopyToId}
+              showSearch
+              optionFilterProp="label"
+            />
+          </Form.Item>
+        </Form>
       </Modal>
 
       <Modal

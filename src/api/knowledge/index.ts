@@ -62,7 +62,6 @@ export const uploadKnowledgeImage = (file: File) => {
   const form = new FormData();
   form.append('file', file);
   return request.post<ApiResponse<{ url: string }>>('/knowledge/upload', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 60000,
+    timeout: 120_000,
   });
 };

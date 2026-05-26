@@ -38,8 +38,7 @@ export const uploadSoftware = (
   if (meta?.category) form.append('category', meta.category);
   if (meta?.version) form.append('version', meta.version);
   return request.post<ApiResponse<SoftwareItem>>('/software/upload', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 0,
+    timeout: 600_000,
     onUploadProgress: (e) => {
       if (e.total && onProgress) {
         onProgress(Math.round((e.loaded / e.total) * 100));

@@ -90,10 +90,45 @@
   border-radius: 8px;
   padding: 14px 16px;
   cursor: pointer;
-  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s, min-height 0.2s;
   display: flex;
   flex-direction: column;
   min-height: 140px;
+}
+
+.note-card--collapsed {
+  min-height: auto;
+  padding: 10px 12px;
+  opacity: 0.88;
+  background: #fafafa;
+}
+
+.note-card--collapsed:hover {
+  transform: none;
+}
+
+.note-card-collapse-btn {
+  flex-shrink: 0;
+  color: #94a3b8;
+  margin-right: -4px;
+}
+
+.note-card--collapsed .note-card-title {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-card-collapsed-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  padding-left: 28px;
+  font-size: 11px;
+  color: #94a3b8;
 }
 
 .note-card:hover {
@@ -109,10 +144,14 @@
 
 .note-card-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 4px;
   margin-bottom: 8px;
+}
+
+.note-card--collapsed .note-card-head {
+  margin-bottom: 0;
 }
 
 .note-card-title {

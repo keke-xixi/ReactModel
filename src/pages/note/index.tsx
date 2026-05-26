@@ -17,6 +17,10 @@ import {
 } from 'antd';
 import type { UploadFile } from 'antd/es/upload';
 import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  CaretDownOutlined,
+  CaretRightOutlined,
   DeleteOutlined,
   FileOutlined,
   LinkOutlined,
@@ -33,12 +37,22 @@ import {
   deleteNote,
   getNoteCategories,
   getNoteList,
+  reorderNotes,
   updateNote,
   uploadNoteFile,
   type ImportantNote,
   type NoteAttachment,
 } from '../../api/note';
 import { assetUrl } from '../../utils/assetUrl';
+import {
+  loadCollapsedIds,
+  loadSortMode,
+  NOTE_SORT_OPTIONS,
+  saveCollapsedIds,
+  saveSortMode,
+  sortNotes,
+  type NoteSortMode,
+} from './noteSort';
 
 const COLOR_PRESETS = ['#4f46e5', '#722ed1', '#1890ff', '#52c41a', '#faad14', '#eb2f96', '#13c2c2'];
 
@@ -116,6 +130,15 @@ const NotePage = () => {
   const [imageUploading, setImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const [form] = Form.useForm<NoteFormValues>();
+  const [sortMode, setSortMode] = useState<NoteSortMode>(() => loadSortMode());
+  const [collapsedIds, setCollapsedIds] = useState<Set<number>>(() => loadCollapsedIds());
+  const [reordering, setReordering] = useState(false);
+
+  const displayList = useMemo(() => sortNotes(list, sortMode), [list, sortMode]);
+  const collapsedCount = useMemo(
+    () => displayList.filter((n) => collapsedIds.has(n.id)).length,
+    [displayList, collapsedIds]
+  );
 
   const loadData = useCallback(async (kw?: string, category?: string | null) => {
     setLoading(true);
@@ -247,6 +270,72 @@ const NotePage = () => {
     }
   };
 
+  const handleSortModeChange = (mode: NoteSortMode) => {
+    setSortMode(mode);
+    saveSortMode(mode);
+  };
+
+  const toggleCollapsed = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      saveCollapsedIds(next);
+      return next;
+    });
+  };
+
+  const collapseAll = () => {
+    const next = new Set(displayList.map((n) => n.id));
+    setCollapsedIds(next);
+    saveCollapsedIds(next);
+  };
+
+  const expandAll = () => {
+    setCollapsedIds(new Set());
+    saveCollapsedIds(new Set());
+  };
+
+  const persistOrder = async (ordered: ImportantNote[]) => {
+    setReordering(true);
+    try {
+      const orders = ordered.map((n, index) => ({ id: n.id, sort_order: index }));
+      const res = await reorderNotes(orders);
+      if (res.data.code === 200) {
+        setList(ordered);
+        if (sortMode !== 'custom') {
+          handleSortModeChange('custom');
+        }
+        message.success('顺序已保存');
+      }
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } };
+      message.error(err.response?.data?.message || '保存顺序失败');
+      loadData(keyword, activeCategory);
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const moveNote = (id: number, direction: -1 | 1, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const idx = displayList.findIndex((n) => n.id === id);
+    if (idx < 0) return;
+    const target = idx + direction;
+    if (target < 0 || target >= displayList.length) return;
+    const note = displayList[idx];
+    const other = displayList[target];
+    if (note.is_pinned !== other.is_pinned) {
+      message.warning('置顶与非置顶笔记不能互换位置');
+      return;
+    }
+    const next = [...displayList];
+    next[idx] = other;
+    next[target] = note;
+    persistOrder(next);
+  };
+
   return (
     <div className="note-page">
       <div className="note-toolbar">
@@ -265,9 +354,22 @@ const NotePage = () => {
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新增
           </Button>
+          <Select
+            value={sortMode}
+            onChange={handleSortModeChange}
+            options={NOTE_SORT_OPTIONS}
+            style={{ width: 140 }}
+          />
+          {collapsedCount > 0 ? (
+            <Button onClick={expandAll}>全部展开</Button>
+          ) : (
+            <Button onClick={collapseAll}>全部折叠</Button>
+          )}
         </Space>
         <span className="note-toolbar-meta">
           共 {list.length} 条{pinnedCount > 0 ? ` · ${pinnedCount} 条置顶` : ''}
+          {collapsedCount > 0 ? ` · ${collapsedCount} 条已折叠` : ''}
+          {sortMode === 'custom' ? ' · 可用 ↑↓ 调整顺序' : ''}
         </span>
       </div>
 
@@ -304,46 +406,93 @@ const NotePage = () => {
         </Empty>
       ) : (
         <div className="note-grid">
-          {list.map((note) => (
-            <article
-              key={note.id}
-              className={`note-card${note.is_pinned === 1 ? ' note-card--pinned' : ''}`}
-              style={{ borderLeftColor: note.color || '#4f46e5' }}
-              onClick={() => openEdit(note)}
-            >
-              <div className="note-card-head">
-                <div className="note-card-title">{note.title}</div>
-                <Space size={4} onClick={(e) => e.stopPropagation()}>
+          {displayList.map((note) => {
+            const collapsed = collapsedIds.has(note.id);
+            const isCustom = sortMode === 'custom';
+            const pinnedGroup = note.is_pinned === 1;
+            const groupList = displayList.filter((n) => (n.is_pinned === 1) === pinnedGroup);
+            const indexInGroup = groupList.findIndex((n) => n.id === note.id);
+
+            return (
+              <article
+                key={note.id}
+                className={`note-card${note.is_pinned === 1 ? ' note-card--pinned' : ''}${
+                  collapsed ? ' note-card--collapsed' : ''
+                }`}
+                style={{ borderLeftColor: note.color || '#4f46e5' }}
+                onClick={() => openEdit(note)}
+              >
+                <div className="note-card-head">
                   <Button
                     type="text"
                     size="small"
-                    icon={note.is_pinned === 1 ? <PushpinFilled /> : <PushpinOutlined />}
-                    className={note.is_pinned === 1 ? 'note-pin-btn--active' : ''}
-                    onClick={(e) => togglePin(note, e)}
+                    className="note-card-collapse-btn"
+                    icon={collapsed ? <CaretRightOutlined /> : <CaretDownOutlined />}
+                    onClick={(e) => toggleCollapsed(note.id, e)}
                   />
-                  <Popconfirm title="确定删除这条笔记？" onConfirm={() => handleDelete(note.id)}>
-                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-                  </Popconfirm>
-                </Space>
-              </div>
-              {note.category && (
-                <Tag className="note-card-tag" bordered={false}>
-                  {note.category}
-                </Tag>
-              )}
-              <p className="note-card-preview">{cardPreview(note)}</p>
-              {(note.attachments?.length ?? 0) > 0 && (
-                <div className="note-card-attachments">
-                  <PaperClipOutlined />
-                  <span>{note.attachments!.length} 个附件</span>
+                  <div className="note-card-title" title={note.title}>
+                    {note.title}
+                  </div>
+                  <Space size={0} onClick={(e) => e.stopPropagation()}>
+                    {isCustom && !collapsed && (
+                      <>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<ArrowUpOutlined />}
+                          disabled={indexInGroup <= 0 || reordering}
+                          onClick={(e) => moveNote(note.id, -1, e)}
+                        />
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<ArrowDownOutlined />}
+                          disabled={indexInGroup >= groupList.length - 1 || reordering}
+                          onClick={(e) => moveNote(note.id, 1, e)}
+                        />
+                      </>
+                    )}
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={note.is_pinned === 1 ? <PushpinFilled /> : <PushpinOutlined />}
+                      className={note.is_pinned === 1 ? 'note-pin-btn--active' : ''}
+                      onClick={(e) => togglePin(note, e)}
+                    />
+                    <Popconfirm title="确定删除这条笔记？" onConfirm={() => handleDelete(note.id)}>
+                      <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>
+                  </Space>
                 </div>
-              )}
-              <div className="note-card-footer">
-                <span>{formatTime(note.updated_at || note.created_at)}</span>
-                {note.is_pinned === 1 && <span className="note-card-pin-label">置顶</span>}
-              </div>
-            </article>
-          ))}
+                {!collapsed && (
+                  <>
+                    {note.category && (
+                      <Tag className="note-card-tag" bordered={false}>
+                        {note.category}
+                      </Tag>
+                    )}
+                    <p className="note-card-preview">{cardPreview(note)}</p>
+                    {(note.attachments?.length ?? 0) > 0 && (
+                      <div className="note-card-attachments">
+                        <PaperClipOutlined />
+                        <span>{note.attachments!.length} 个附件</span>
+                      </div>
+                    )}
+                    <div className="note-card-footer">
+                      <span>{formatTime(note.updated_at || note.created_at)}</span>
+                      {note.is_pinned === 1 && <span className="note-card-pin-label">置顶</span>}
+                    </div>
+                  </>
+                )}
+                {collapsed && (
+                  <div className="note-card-collapsed-meta">
+                    {note.category && <span>{note.category}</span>}
+                    <span>{formatTime(note.updated_at || note.created_at)}</span>
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       )}
 
