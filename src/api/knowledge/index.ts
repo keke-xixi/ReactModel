@@ -34,6 +34,11 @@ export interface BoardColumn extends KnowledgeCategory {
 export const getKnowledgeBoard = (params?: { keyword?: string }) =>
   request.get<ApiResponse<BoardColumn[]>>('/knowledge/board', { params });
 
+export const reorderKnowledgeBoard = (payload: {
+  categories?: { id: number; sort_order: number }[];
+  points?: { id: number; category_id: number; sort_order: number }[];
+}) => request.post<ApiResponse<null>>('/knowledge/board/reorder', payload);
+
 export const getKnowledgeCategories = () =>
   request.get<ApiResponse<KnowledgeCategory[]>>('/knowledge/categories');
 

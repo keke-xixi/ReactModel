@@ -505,7 +505,7 @@ const NotePage = () => {
           setEditingNote(null);
         }}
         afterOpenChange={handleDrawerAfterOpen}
-        destroyOnClose
+        destroyOnHidden
         className="note-drawer"
         extra={
           <Space>

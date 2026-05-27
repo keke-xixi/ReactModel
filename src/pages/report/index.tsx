@@ -247,7 +247,7 @@ const ReportList = () => {
         onOk={handleSaveMeta}
         onCancel={() => setModalOpen(false)}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
         afterOpenChange={(open) => {
           if (open && editing) {
             editForm.setFieldsValue({

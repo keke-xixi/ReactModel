@@ -256,7 +256,7 @@ const SystemMenu = () => {
         }}
         afterOpenChange={handleModalAfterOpen}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
         width={720}
         centered
         styles={{

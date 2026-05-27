@@ -323,7 +323,7 @@ const SystemDict = () => {
           onOk={submitData}
           onCancel={() => setDataModalOpen(false)}
           confirmLoading={saving}
-          destroyOnClose
+          destroyOnHidden
           width={480}
           centered
         >
@@ -383,7 +383,7 @@ const SystemDict = () => {
         onOk={submitType}
         onCancel={() => setTypeModalOpen(false)}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
         width={480}
         centered
       >

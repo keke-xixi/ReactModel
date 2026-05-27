@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import {
   Button,
   Drawer,
@@ -36,6 +36,7 @@ import {
   deleteKnowledgePoint,
   getKnowledgeBoard,
   getKnowledgePoint,
+  reorderKnowledgeBoard,
   updateKnowledgeCategory,
   updateKnowledgePoint,
   uploadKnowledgeImage,
@@ -54,6 +55,11 @@ type DropTarget = { columnId: number; index: number; overCardId?: number };
 type ViewMode = 'board' | 'focus';
 
 const COLUMN_WIDTH = 272;
+
+const setDragTransfer = (e: DragEvent, kind: 'card' | 'column' | 'tab', id: number) => {
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', `${kind}:${id}`);
+};
 
 const swapCardsInBoard = (columns: BoardColumn[], cardIdA: number, cardIdB: number): BoardColumn[] =>
   columns.map((col) => {
@@ -115,9 +121,12 @@ const Knowledge = () => {
 
   const [dragCardId, setDragCardId] = useState<number | null>(null);
   const [dragColumnIndex, setDragColumnIndex] = useState<number | null>(null);
+  const [dragTabIndex, setDragTabIndex] = useState<number | null>(null);
+  const [tabDropIndex, setTabDropIndex] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [columnDropIndex, setColumnDropIndex] = useState<number | null>(null);
   const cardDragMovedRef = useRef(false);
+  const dragCardIdRef = useRef<number | null>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>('board');
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
@@ -190,18 +199,57 @@ const Knowledge = () => {
     el.scrollBy({ left: direction * Math.max(el.clientWidth * 0.65, 220), behavior: 'smooth' });
   };
 
-  const persistColumnPoints = async (columnId: number, points: KnowledgePoint[]) => {
-    await Promise.all(
-      points.map((p, index) =>
-        updateKnowledgePoint(p.id, { category_id: columnId, sort_order: index })
-      )
-    );
+  const buildCategoryOrders = (columns: BoardColumn[]) =>
+    columns.map((col, index) => ({ id: col.id, sort_order: index }));
+
+  const buildPointOrders = (columns: BoardColumn[], columnIds: Set<number>) => {
+    const orders: { id: number; category_id: number; sort_order: number }[] = [];
+    columns.forEach((col) => {
+      if (!columnIds.has(col.id)) return;
+      col.points.forEach((p, index) => {
+        orders.push({ id: p.id, category_id: col.id, sort_order: index });
+      });
+    });
+    return orders;
   };
 
-  const persistColumnOrder = async (columns: BoardColumn[]) => {
-    await Promise.all(
-      columns.map((col, index) => updateKnowledgeCategory(col.id, { sort_order: index }))
-    );
+  const persistBoardReorder = async (
+    columns: BoardColumn[],
+    opts: { categories?: boolean; pointColumnIds?: Set<number> }
+  ) => {
+    const payload: {
+      categories?: { id: number; sort_order: number }[];
+      points?: { id: number; category_id: number; sort_order: number }[];
+    } = {};
+    if (opts.categories) payload.categories = buildCategoryOrders(columns);
+    if (opts.pointColumnIds?.size) {
+      payload.points = buildPointOrders(columns, opts.pointColumnIds);
+    }
+    if (!payload.categories?.length && !payload.points?.length) return;
+    try {
+      const res = await reorderKnowledgeBoard(payload);
+      if (res.data.code !== 200) throw new Error(res.data.message || '保存排序失败');
+    } catch (e: unknown) {
+      const status = (e as { response?: { status?: number } }).response?.status;
+      if (status !== 404) throw e;
+      if (payload.categories?.length) {
+        await Promise.all(
+          payload.categories.map((item) =>
+            updateKnowledgeCategory(item.id, { sort_order: item.sort_order })
+          )
+        );
+      }
+      if (payload.points?.length) {
+        await Promise.all(
+          payload.points.map((item) =>
+            updateKnowledgePoint(item.id, {
+              category_id: item.category_id,
+              sort_order: item.sort_order,
+            })
+          )
+        );
+      }
+    }
   };
 
   const handleSearch = () => loadBoard(keyword);
@@ -243,6 +291,7 @@ const Knowledge = () => {
       setImageUrls(p.images || []);
       pointForm.setFieldsValue({
         title: p.title,
+        category_id: p.category_id,
         content: p.content ?? '',
         summary: p.summary ?? '',
         tags: p.tags ?? '',
@@ -341,29 +390,41 @@ const Knowledge = () => {
     }
   };
 
-  const saveBoardOrder = async (prevBoard: BoardColumn[], nextBoard: BoardColumn[], dragId: number) => {
+  const collectTouchedColumnIds = (prevBoard: BoardColumn[], nextBoard: BoardColumn[], dragId: number) => {
+    const touched = new Set<number>();
     const sourceCol = prevBoard.find((c) => c.points.some((p) => p.id === dragId));
-    const tasks: Promise<unknown>[] = [];
-    const touchedColIds = new Set<number>();
-    if (sourceCol) touchedColIds.add(sourceCol.id);
+    if (sourceCol) touched.add(sourceCol.id);
     nextBoard.forEach((c) => {
-      if (c.points.some((p) => p.id === dragId)) touchedColIds.add(c.id);
+      if (c.points.some((p) => p.id === dragId)) touched.add(c.id);
     });
-    touchedColIds.forEach((colId) => {
-      const col = nextBoard.find((c) => c.id === colId);
-      if (col) tasks.push(persistColumnPoints(col.id, col.points));
-    });
-    await Promise.all(tasks);
+    return touched;
+  };
+
+  const startCardDrag = (e: DragEvent, pointId: number) => {
+    if ((e.target as HTMLElement).closest('.knowledge-card-no-drag, .ant-popconfirm')) {
+      e.preventDefault();
+      return;
+    }
+    cardDragMovedRef.current = false;
+    dragCardIdRef.current = pointId;
+    setDragCardId(pointId);
+    setDragTransfer(e, 'card', pointId);
+  };
+
+  const endCardDrag = () => {
+    dragCardIdRef.current = null;
+    setDragCardId(null);
+    setDropTarget(null);
   };
 
   const finishCardDrag = async (prevBoard: BoardColumn[], nextBoard: BoardColumn[]) => {
-    if (dragCardId == null) return;
-    const dragId = dragCardId;
+    const dragId = dragCardIdRef.current;
+    if (dragId == null) return;
     setBoard(nextBoard);
-    setDragCardId(null);
-    setDropTarget(null);
+    endCardDrag();
     try {
-      await saveBoardOrder(prevBoard, nextBoard, dragId);
+      const touched = collectTouchedColumnIds(prevBoard, nextBoard, dragId);
+      await persistBoardReorder(nextBoard, { pointColumnIds: touched });
       message.success('排序已保存');
     } catch {
       message.error('保存排序失败');
@@ -371,19 +432,21 @@ const Knowledge = () => {
     }
   };
 
-  /** 拖到列顶：排到第一位 */
+  /** 拖到列顶/列底：插入到指定下标 */
   const handleCardDropAtIndex = (columnId: number, index: number) => {
-    if (dragCardId == null) return;
+    const dragId = dragCardIdRef.current;
+    if (dragId == null) return;
     const prevBoard = board;
-    const nextBoard = reorderPointsInBoard(board, dragCardId, columnId, index);
+    const nextBoard = reorderPointsInBoard(board, dragId, columnId, index);
     finishCardDrag(prevBoard, nextBoard);
   };
 
   /** 拖到某张卡片上：同列交换位置，跨列插入到该卡片位置 */
   const handleCardDropOnCard = (columnId: number, targetPointId: number) => {
-    if (dragCardId == null || dragCardId === targetPointId) return;
+    const dragId = dragCardIdRef.current;
+    if (dragId == null || dragId === targetPointId) return;
     const prevBoard = board;
-    const sourceCol = board.find((c) => c.points.some((p) => p.id === dragCardId));
+    const sourceCol = board.find((c) => c.points.some((p) => p.id === dragId));
     const targetCol = board.find((c) => c.id === columnId);
     if (!sourceCol || !targetCol) return;
 
@@ -392,11 +455,24 @@ const Knowledge = () => {
 
     let nextBoard: BoardColumn[];
     if (sourceCol.id === columnId) {
-      nextBoard = swapCardsInBoard(board, dragCardId, targetPointId);
+      nextBoard = swapCardsInBoard(board, dragId, targetPointId);
     } else {
-      nextBoard = reorderPointsInBoard(board, dragCardId, columnId, targetIdx);
+      nextBoard = reorderPointsInBoard(board, dragId, columnId, targetIdx);
     }
     finishCardDrag(prevBoard, nextBoard);
+  };
+
+  const applyCategoryReorder = async (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    const nextBoard = reorderColumnsInBoard(board, fromIndex, toIndex);
+    setBoard(nextBoard);
+    try {
+      await persistBoardReorder(nextBoard, { categories: true });
+      message.success('分类顺序已保存');
+    } catch {
+      message.error('保存分类顺序失败');
+      loadBoard(keyword);
+    }
   };
 
   const handleColumnDrop = async (toIndex: number) => {
@@ -405,17 +481,29 @@ const Knowledge = () => {
       setColumnDropIndex(null);
       return;
     }
-    const nextBoard = reorderColumnsInBoard(board, dragColumnIndex, toIndex);
-    setBoard(nextBoard);
+    const from = dragColumnIndex;
     setDragColumnIndex(null);
     setColumnDropIndex(null);
-    try {
-      await persistColumnOrder(nextBoard);
-      message.success('分类顺序已保存');
-    } catch {
-      message.error('保存分类顺序失败');
-      loadBoard(keyword);
+    await applyCategoryReorder(from, toIndex);
+  };
+
+  const handleTabDrop = async (toIndex: number) => {
+    if (dragTabIndex == null || dragTabIndex === toIndex) {
+      setDragTabIndex(null);
+      setTabDropIndex(null);
+      return;
     }
+    const from = dragTabIndex;
+    setDragTabIndex(null);
+    setTabDropIndex(null);
+    await applyCategoryReorder(from, toIndex);
+  };
+
+  const handleCardDropOnColumnBody = (columnId: number) => {
+    if (dragCardIdRef.current == null) return;
+    const col = board.find((c) => c.id === columnId);
+    if (!col) return;
+    handleCardDropAtIndex(columnId, col.points.length);
   };
 
   const coverUploadList: UploadFile[] = coverUrl
@@ -478,22 +566,54 @@ const Knowledge = () => {
               onClick={() => scrollCategoryTabs(-1)}
             />
             <div ref={categoryTabsRef} className="knowledge-category-tabs">
-              {board.map((column) => (
-                <button
+              {board.map((column, tabIndex) => (
+                <div
                   key={column.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
+                  draggable
                   className={`knowledge-category-tab${
                     activeCategoryId === column.id ? ' knowledge-category-tab--active' : ''
+                  }${dragTabIndex === tabIndex ? ' knowledge-category-tab--dragging' : ''}${
+                    tabDropIndex === tabIndex && dragTabIndex != null && dragTabIndex !== tabIndex
+                      ? ' knowledge-category-tab--drop-target'
+                      : ''
                   }`}
                   onClick={() => scrollToColumn(column.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      scrollToColumn(column.id);
+                    }
+                  }}
+                  onDragStart={(e) => {
+                    setDragTabIndex(tabIndex);
+                    setDragTransfer(e, 'tab', column.id);
+                  }}
+                  onDragOver={(e) => {
+                    if (dragTabIndex == null) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    setTabDropIndex(tabIndex);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleTabDrop(tabIndex);
+                  }}
+                  onDragEnd={() => {
+                    setDragTabIndex(null);
+                    setTabDropIndex(null);
+                  }}
                 >
+                  <HolderOutlined className="knowledge-category-tab-handle" />
                   <span
                     className="knowledge-category-tab-dot"
                     style={{ background: column.color || '#722ed1' }}
                   />
                   <span className="knowledge-category-tab-name">{column.name}</span>
                   <span className="knowledge-category-tab-count">{column.points.length}</span>
-                </button>
+                </div>
               ))}
             </div>
             <Button
@@ -532,7 +652,9 @@ const Knowledge = () => {
         )}
         <div
           ref={boardRef}
-          className={`knowledge-board${viewMode === 'focus' ? ' knowledge-board--focus' : ''}`}
+          className={`knowledge-board${viewMode === 'focus' ? ' knowledge-board--focus' : ''}${
+            dragColumnIndex != null ? ' knowledge-board--column-drag' : ''
+          }${dragCardId != null ? ' knowledge-board--card-drag' : ''}`}
         >
         {displayBoard.map((column) => {
           const colIndex = board.findIndex((c) => c.id === column.id);
@@ -554,6 +676,7 @@ const Knowledge = () => {
               onDragOver={(e) => {
                 if (dragColumnIndex == null) return;
                 e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
                 setColumnDropIndex(colIndex);
               }}
               onDrop={(e) => {
@@ -577,7 +700,7 @@ const Knowledge = () => {
                 draggable
                 onDragStart={(e) => {
                   setDragColumnIndex(colIndex);
-                  e.dataTransfer.effectAllowed = 'move';
+                  setDragTransfer(e, 'column', column.id);
                 }}
                 onDragEnd={() => {
                   setDragColumnIndex(null);
@@ -618,7 +741,29 @@ const Knowledge = () => {
                   </Popconfirm>
                 </div>
               </div>
-              <div className="knowledge-column-body">
+              <div
+                className={`knowledge-column-body${
+                  dropTarget?.columnId === column.id &&
+                  dragCardId != null &&
+                  !dropTarget.overCardId &&
+                  dropTarget.index === column.points.length
+                    ? ' knowledge-column-body--drop-target'
+                    : ''
+                }`}
+                onDragOver={(e) => {
+                  if (dragCardIdRef.current == null) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setDropTarget({ columnId: column.id, index: column.points.length });
+                }}
+                onDrop={(e) => {
+                  if (dragCardIdRef.current == null) return;
+                  if ((e.target as HTMLElement).closest('.knowledge-card')) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCardDropOnColumnBody(column.id);
+                }}
+              >
                 {dragCardId != null && (
                   <div
                     className={`knowledge-column-top-zone${
@@ -631,6 +776,7 @@ const Knowledge = () => {
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      e.dataTransfer.dropEffect = 'move';
                       setDropTarget({ columnId: column.id, index: 0 });
                     }}
                     onDrop={(e) => {
@@ -646,12 +792,14 @@ const Knowledge = () => {
                   <div
                     className="knowledge-empty-column"
                     onDragOver={(e) => {
-                      if (dragCardId == null) return;
+                      if (dragCardIdRef.current == null) return;
                       e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
                       setDropTarget({ columnId: column.id, index: 0 });
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
+                      e.stopPropagation();
                       handleCardDropAtIndex(column.id, 0);
                     }}
                   >
@@ -667,20 +815,18 @@ const Knowledge = () => {
                       }${
                         dropTarget?.overCardId === point.id ? ' knowledge-card--drop-over' : ''
                       }`}
-                      onDragStart={(e) => {
-                        cardDragMovedRef.current = false;
-                        setDragCardId(point.id);
-                        e.dataTransfer.effectAllowed = 'move';
-                      }}
+                      onDragStart={(e) => startCardDrag(e, point.id)}
                       onDrag={(e) => {
                         if (e.clientX !== 0 || e.clientY !== 0) {
                           cardDragMovedRef.current = true;
                         }
                       }}
+                      onDragEnd={endCardDrag}
                       onDragOver={(e) => {
-                        if (dragCardId == null || dragCardId === point.id) return;
+                        if (dragCardIdRef.current == null || dragCardIdRef.current === point.id) return;
                         e.preventDefault();
                         e.stopPropagation();
+                        e.dataTransfer.dropEffect = 'move';
                         const idx = column.points.findIndex((p) => p.id === point.id);
                         setDropTarget({
                           columnId: column.id,
@@ -692,10 +838,6 @@ const Knowledge = () => {
                         e.preventDefault();
                         e.stopPropagation();
                         handleCardDropOnCard(column.id, point.id);
-                      }}
-                      onDragEnd={() => {
-                        setDragCardId(null);
-                        setDropTarget(null);
                       }}
                       onClick={() => {
                         if (cardDragMovedRef.current) {
@@ -714,7 +856,7 @@ const Knowledge = () => {
                           />
                         )}
                         <div className="knowledge-card-meta">
-                          <HolderOutlined style={{ color: '#ccc', fontSize: 12 }} />
+                          <HolderOutlined className="knowledge-card-handle" />
                           <Tag color={point.status === 1 ? 'blue' : 'default'}>
                             {point.status === 1 ? '已发布' : '草稿'}
                           </Tag>
@@ -727,7 +869,7 @@ const Knowledge = () => {
                               size="small"
                               danger
                               icon={<DeleteOutlined />}
-                              className="knowledge-card-delete"
+                              className="knowledge-card-delete knowledge-card-no-drag"
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
                             />
@@ -751,6 +893,7 @@ const Knowledge = () => {
                     }`}
                     onDragOver={(e) => {
                       e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
                       setDropTarget({
                         columnId: column.id,
                         index: column.points.length,
@@ -758,6 +901,7 @@ const Knowledge = () => {
                     }}
                     onDrop={(e) => {
                       e.preventDefault();
+                      e.stopPropagation();
                       handleCardDropAtIndex(column.id, column.points.length);
                     }}
                   >
@@ -799,7 +943,7 @@ const Knowledge = () => {
         onOk={submitCategory}
         onCancel={() => setCategoryModalOpen(false)}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
         width={480}
       >
         <Form form={categoryForm} layout="vertical" requiredMark>
@@ -839,7 +983,7 @@ const Knowledge = () => {
         open={quickPointModal}
         onOk={submitQuickPoint}
         onCancel={() => setQuickPointModal(false)}
-        destroyOnClose
+        destroyOnHidden
         width={480}
       >
         <Form form={quickForm} layout="vertical" requiredMark>
@@ -871,6 +1015,12 @@ const Knowledge = () => {
         <Form form={pointForm} layout="vertical" requiredMark className="knowledge-drawer-content-main">
           <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
             <Input />
+          </Form.Item>
+          <Form.Item name="category_id" label="所属分类" rules={[{ required: true, message: '请选择分类' }]}>
+            <Select
+              options={board.map((c) => ({ value: c.id, label: c.name }))}
+              placeholder="可在此移动到其它分类"
+            />
           </Form.Item>
           <Form.Item name="status" label="状态" rules={[{ required: true }]}>
             <Select options={statusOptions} style={{ width: 160 }} />

@@ -117,8 +117,27 @@
   color: #595959;
   font-size: 13px;
   line-height: 1.4;
-  cursor: pointer;
+  cursor: grab;
   transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.knowledge-category-tab:active {
+  cursor: grabbing;
+}
+
+.knowledge-category-tab--dragging {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.knowledge-category-tab--drop-target {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.25);
+}
+
+.knowledge-category-tab-handle {
+  color: #bbb;
+  font-size: 11px;
 }
 
 .knowledge-category-tab:hover {
@@ -217,8 +236,17 @@
 }
 
 .knowledge-column-wrap {
-  flex: 0 0 var(--knowledge-column-width);
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
   scroll-snap-align: start;
+}
+
+.knowledge-column-wrap > .knowledge-column {
+  flex: 0 0 var(--knowledge-column-width);
+  width: var(--knowledge-column-width);
 }
 
 .knowledge-board--focus .knowledge-column-wrap {
@@ -328,6 +356,13 @@
   min-height: 120px;
   max-height: calc(100vh - 280px);
   scrollbar-gutter: stable;
+  border-radius: 0 0 8px 8px;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.knowledge-column-body--drop-target {
+  background: rgba(22, 119, 255, 0.06);
+  box-shadow: inset 0 0 0 2px rgba(22, 119, 255, 0.25);
 }
 
 .knowledge-board--focus .knowledge-column-body {
@@ -363,20 +398,22 @@
 }
 
 .knowledge-drop-slot {
-  width: var(--knowledge-column-width);
+  width: 16px;
   min-height: 0;
-  height: 0;
+  height: auto;
+  align-self: stretch;
   margin: 0;
-  overflow: hidden;
   border-radius: 4px;
-  transition: min-height 0.15s, background 0.15s, margin 0.15s;
+  transition: min-width 0.15s, background 0.15s;
   flex-shrink: 0;
 }
 
+.knowledge-board--column-drag .knowledge-drop-slot {
+  min-width: 16px;
+}
+
 .knowledge-drop-slot--active {
-  min-height: 32px;
-  height: auto;
-  margin-bottom: 4px;
+  min-width: 28px;
   background: rgba(22, 119, 255, 0.12);
   border: 1px dashed #1677ff;
 }
@@ -392,6 +429,17 @@
 
 .knowledge-card:active {
   cursor: grabbing;
+}
+
+.knowledge-card-handle {
+  color: #ccc;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.knowledge-board--card-drag .knowledge-column-top-zone,
+.knowledge-board--card-drag .knowledge-column-bottom-zone {
+  min-height: 32px;
 }
 
 .knowledge-card:hover {

@@ -295,7 +295,7 @@ const SoftwarePage = () => {
         onOk={handleEditSave}
         onCancel={() => setEditOpen(false)}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical">
           <Form.Item name="name" label="显示名称" rules={[{ required: true, message: '请输入名称' }]}>

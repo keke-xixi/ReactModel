@@ -421,7 +421,7 @@ const SystemUsers = () => {
         onOk={handleSubmit}
         onCancel={() => setModalOpen(false)}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
         width={880}
         styles={{ body: { paddingTop: 16 } }}
       >

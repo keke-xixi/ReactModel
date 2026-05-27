@@ -283,7 +283,7 @@ const SystemParams = () => {
         }}
         afterOpenChange={handleModalAfterOpen}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
         width={720}
         centered
         styles={{ body: { padding: '20px 24px 8px', overflow: 'visible', maxHeight: 'none' } }}
