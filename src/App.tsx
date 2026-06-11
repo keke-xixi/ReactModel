@@ -16,6 +16,7 @@ import Setting from './pages/setting';
 import Knowledge from './pages/knowledge';
 import Note from './pages/note';
 import Software from './pages/software';
+import ImageStorage from './pages/image-storage';
 import Tool from './pages/tool';
 import { appTheme } from './theme/antdTheme';
 
@@ -41,6 +42,7 @@ function App() {
               <Route path="knowledge" element={<Knowledge />} />
               <Route path="note" element={<Note />} />
               <Route path="software" element={<Software />} />
+              <Route path="image-storage" element={<ImageStorage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
